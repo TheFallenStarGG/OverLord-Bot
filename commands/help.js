@@ -31,7 +31,7 @@ module.exports = {
     for (const c of sorted) {
       lines.push(`**${c.usage}** — ${accessLabel(c.access)}`, c.description, '');
     }
-    lines.push('React with 👍 or 👎 on my answers to rate the model that wrote them.');
+    lines.push('Use the buttons under my answers to rate them (👍/👎), retry (🔁), or delete (🗑️) them.');
 
     await replyLines(message, lines);
   },
