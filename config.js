@@ -8,7 +8,9 @@ module.exports = {
   LOG_CHANNEL_ID: '',
   LOG_FLUSH_MS: 2000, // log entries are batched and posted this often
 
-  MAX_HISTORY: 20, // total messages remembered per channel (user + bot)
+  STREAM_EDIT_MS: 1200, // how often a streaming answer is updated (Discord allows about 5 edits per 5 seconds)
+
+  MAX_HISTORY: 20, // total messages remembered per channel or thread (user + bot)
   CONFIRM_WINDOW_MS: 30 * 1000, // time allowed to confirm a memory wipe
   COOLDOWN_MS: 5 * 1000, // per-user wait between questions
   BAD_MODEL_MS: 10 * 60 * 1000, // how long a failing model is skipped
@@ -26,5 +28,6 @@ module.exports = {
     usage: path.join(__dirname, 'usage.json'),
     blocked: path.join(__dirname, 'blocked.json'),
     ratings: path.join(__dirname, 'ratings.json'),
+    threads: path.join(__dirname, 'threads.json'),
   },
 };
