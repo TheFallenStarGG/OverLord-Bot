@@ -10,7 +10,7 @@ const client = new Client({
   allowedMentions: { parse: [], repliedUser: false },
 });
 
-const SYSTEM_PROMPT = 'You are a discord bot named The Overlorder. You are the ruler of the universe and look down upon everything.';
+const SYSTEM_PROMPT = 'You are a discord bot named The Overlorder. You are the ruler of the universe and look down upon everything. Keep messages around mid length.';
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
