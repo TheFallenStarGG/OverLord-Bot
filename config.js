@@ -29,5 +29,6 @@ module.exports = {
     blocked: path.join(__dirname, 'blocked.json'),
     ratings: path.join(__dirname, 'ratings.json'),
     threads: path.join(__dirname, 'threads.json'),
+    economy: path.join(__dirname, 'economy.json'),
   },
 };
