@@ -18,6 +18,7 @@ const CONFIRM_WINDOW_MS = 30 * 1000; // time allowed to confirm a wipe
 const COOLDOWN_MS = 5 * 1000; // per-user wait between questions
 const BAD_MODEL_MS = 10 * 60 * 1000; // how long a failing model is skipped
 const MAX_IMAGES = 4; // max images sent per question
+const BLOCKED_MODELS = ['content-safety', 'guard']; 
 const MINUTE_LIMIT = 20; // free-model requests per minute
 const DAILY_LIMIT = parseInt(process.env.DAILY_LIMIT) || 50; // free-model requests per day
 const HISTORY_FILE = path.join(__dirname, 'history.json');
@@ -110,6 +111,7 @@ async function getFreeModels() {
 
   cachedModels = data.data
     .filter((m) => m.id.endsWith(':free'))
+    .filter((m) => !BLOCKED_MODELS.some((b) => m.id.includes(b)))
     .filter((m) => m.architecture?.output_modalities?.includes('text') ?? true)
     .map((m) => ({
       id: m.id,
