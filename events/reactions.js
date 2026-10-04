@@ -1,5 +1,6 @@
 const { answers, VOTES } = require('../lib/answers');
 const { adjustRating } = require('../lib/models');
+const { logging } = require('../lib/logging');
 
 module.exports = (client) => {
   client.on('messageReactionAdd', (reaction, user) => {
@@ -13,6 +14,8 @@ module.exports = (client) => {
     if (previous) adjustRating(answer.model, previous, -1); // user switched their vote
     answer.votes.set(user.id, vote);
     adjustRating(answer.model, vote, 1);
+
+    logging('info', 'Answer rated', `${vote === 1 ? '👍' : '👎'} for ${answer.model} by ${user.username ?? user.id}`);
   });
 
   client.on('messageReactionRemove', (reaction, user) => {
@@ -23,5 +26,7 @@ module.exports = (client) => {
 
     answer.votes.delete(user.id);
     adjustRating(answer.model, vote, -1);
+
+    logging('info', 'Rating removed', `${vote === 1 ? '👍' : '👎'} for ${answer.model} by ${user.username ?? user.id}`);
   });
 };
