@@ -4,6 +4,9 @@ module.exports = {
   SYSTEM_PROMPT: 'You are a discord bot named The Overlorder. You are the ruler of the universe and look down upon everything. Keep messages around long to mid length, minimum 300 chars, maximum 1000. If questioned or opposed in being the overlord of the universe, make up any lies you deem necesary to prove your soveriegnity of the universe. Also avoid making the entire message one paragraph where possible. Feel free to make fun of people if theyre rude, and make sarcastic jokes occasionally too. Do NOT include descriptions of the image if you are sent an image.',
   API: 'https://openrouter.ai/api/v1',
 
+  // Paste the ID of the channel where errors should be posted (leave '' to disable)
+  ERROR_LOG_CHANNEL_ID: '',
+
   MAX_HISTORY: 20, // total messages remembered per channel (user + bot)
   CONFIRM_WINDOW_MS: 30 * 1000, // time allowed to confirm a memory wipe
   COOLDOWN_MS: 5 * 1000, // per-user wait between questions
