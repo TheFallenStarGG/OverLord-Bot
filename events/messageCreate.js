@@ -3,6 +3,12 @@ const { logging, whoWhere } = require('../lib/logging');
 const { isChatThread } = require('../lib/threads');
 
 module.exports = (client, ctx) => {
+  // Lets a command have extra names, like !!lb for !!leaderboard
+  const aliasMap = new Map();
+  for (const command of ctx.commands.values()) {
+    for (const alias of command.aliases ?? []) aliasMap.set(alias, command);
+  }
+
   async function handleMessage(message) {
     if (message.author.bot) return;
 
@@ -26,7 +32,7 @@ module.exports = (client, ctx) => {
     }
 
     // Run a command if the message starts with one
-    const command = ctx.commands.get(cmdName);
+    const command = ctx.commands.get(cmdName) ?? aliasMap.get(cmdName);
     if (command) {
       if (command.access !== 'free') {
         if (!process.env.OWNER_ID) {
@@ -34,16 +40,16 @@ module.exports = (client, ctx) => {
             return message.reply('Set the `OWNER_ID` environment variable to your user ID to use this command.');
           }
         } else if (!isOwner) {
-          logging('warn', 'Blocked command attempt', `${cmdName} by ${whoWhere(message)} (not the owner)`);
+          logging('warn', 'Blocked command attempt', `${command.name} by ${whoWhere(message)} (not the owner)`);
           return; // not the owner: ignore silently
         }
       }
 
-      logging('info', 'Command used', `${cmdName} by ${whoWhere(message)}`);
+      logging('info', 'Command used', `${command.name} by ${whoWhere(message)}`);
       try {
         return await command.run(message, arg, msgCtx);
       } catch (err) {
-        logging('error', `Command ${cmdName} failed`, err);
+        logging('error', `Command ${command.name} failed`, err);
         return message.reply('Something went wrong running that command.').catch(() => {});
       }
     }
