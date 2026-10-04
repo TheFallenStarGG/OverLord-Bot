@@ -7,10 +7,13 @@ require('../lib/games/duel');
 require('../lib/games/tictactoe');
 require('../lib/games/connect4');
 require('../lib/games/blackjack');
+require('../lib/games/battleship');
 
 module.exports = (client) => {
   client.on('interactionCreate', async (interaction) => {
-    if (!interaction.isButton() || !interaction.customId.startsWith('game:')) return;
+    const isGameInteraction =
+      (interaction.isButton() || interaction.isModalSubmit()) && interaction.customId.startsWith('game:');
+    if (!isGameInteraction) return;
 
     try {
       await handleGameButton(interaction);
