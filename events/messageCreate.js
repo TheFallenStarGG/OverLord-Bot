@@ -1,5 +1,6 @@
 const { handleChat } = require('../lib/chat');
 const { logging, whoWhere } = require('../lib/logging');
+const { isChatThread } = require('../lib/threads');
 
 module.exports = (client, ctx) => {
   async function handleMessage(message) {
@@ -47,8 +48,11 @@ module.exports = (client, ctx) => {
       }
     }
 
-    // AI chat: only when pinged
-    if (message.mentions.users.has(client.user.id)) return handleChat(message, msgCtx);
+    // AI chat: when pinged, or for any message in a chat thread (start a message with // to skip the bot)
+    const inChatThread = message.channel.isThread() && isChatThread(message.channel.id);
+    if (message.mentions.users.has(client.user.id) || (inChatThread && !trimmed.startsWith('//'))) {
+      return handleChat(message, msgCtx);
+    }
   }
 
   client.on('messageCreate', async (message) => {
