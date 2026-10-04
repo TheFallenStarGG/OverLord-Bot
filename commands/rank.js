@@ -19,7 +19,7 @@ module.exports = {
 
     await message.reply(
       `📈 **${target.username}** — Level **${level}**\n${bar} ${xp - base} / ${next - base} XP to level ${level + 1}\n` +
-      `-# ${xp.toLocaleString('en-US')} XP total · #${rankOf(target.id, 'xp')} on \`!!top\``
+      `-# ${xp.toLocaleString('en-US')} XP total · #${rankOf(target.id, 'xp')} on \`!!leaderboard\``
     );
   },
 };
