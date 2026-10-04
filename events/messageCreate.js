@@ -1,5 +1,5 @@
 const { handleChat } = require('../lib/chat');
-const { logError } = require('../lib/errorLog');
+const { logging, whoWhere } = require('../lib/logging');
 
 module.exports = (client, ctx) => {
   async function handleMessage(message) {
@@ -18,7 +18,10 @@ module.exports = (client, ctx) => {
 
     // Some commands watch for follow-up messages (like the "proceed" confirmation)
     for (const command of ctx.commands.values()) {
-      if (command.intercept && (await command.intercept(message, content))) return;
+      if (command.intercept && (await command.intercept(message, content))) {
+        logging('info', 'Confirmed action', `${command.name} by ${whoWhere(message)}`);
+        return;
+      }
     }
 
     // Run a command if the message starts with one
@@ -30,14 +33,16 @@ module.exports = (client, ctx) => {
             return message.reply('Set the `OWNER_ID` environment variable to your user ID to use this command.');
           }
         } else if (!isOwner) {
+          logging('warn', 'Blocked command attempt', `${cmdName} by ${whoWhere(message)} (not the owner)`);
           return; // not the owner: ignore silently
         }
       }
 
+      logging('info', 'Command used', `${cmdName} by ${whoWhere(message)}`);
       try {
         return await command.run(message, arg, msgCtx);
       } catch (err) {
-        await logError(`Command ${cmdName} failed`, err);
+        logging('error', `Command ${cmdName} failed`, err);
         return message.reply('Something went wrong running that command.').catch(() => {});
       }
     }
@@ -50,7 +55,7 @@ module.exports = (client, ctx) => {
     try {
       await handleMessage(message);
     } catch (err) {
-      await logError('Unexpected error handling a message', err);
+      logging('error', 'Unexpected error handling a message', err);
     }
   });
 };
