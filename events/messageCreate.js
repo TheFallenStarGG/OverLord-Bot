@@ -1,16 +1,20 @@
 const { handleChat } = require('../lib/chat');
+const { logError } = require('../lib/errorLog');
 
 module.exports = (client, ctx) => {
-  client.on('messageCreate', async (message) => {
+  async function handleMessage(message) {
     if (message.author.bot) return;
 
-    const content = message.content.trim().toLowerCase();
-    const cmdName = content.split(/\s+/)[0];
-    const arg = content.slice(cmdName.length).trim();
+    const trimmed = message.content.trim();
+    const first = trimmed.split(/\s+/)[0];
+    const cmdName = first.toLowerCase();
+    const rawArg = trimmed.slice(first.length).trim(); // keeps original capitalization
+    const arg = rawArg.toLowerCase();
+    const content = trimmed.toLowerCase();
 
     // Optional: set OWNER_ID to restrict the owner commands to just you
     const isOwner = Boolean(process.env.OWNER_ID) && message.author.id === process.env.OWNER_ID;
-    const msgCtx = { ...ctx, isOwner };
+    const msgCtx = { ...ctx, isOwner, rawArg };
 
     // Some commands watch for follow-up messages (like the "proceed" confirmation)
     for (const command of ctx.commands.values()) {
@@ -29,10 +33,24 @@ module.exports = (client, ctx) => {
           return; // not the owner: ignore silently
         }
       }
-      return command.run(message, arg, msgCtx);
+
+      try {
+        return await command.run(message, arg, msgCtx);
+      } catch (err) {
+        await logError(`Command ${cmdName} failed`, err);
+        return message.reply('Something went wrong running that command.').catch(() => {});
+      }
     }
 
     // AI chat: only when pinged
     if (message.mentions.users.has(client.user.id)) return handleChat(message, msgCtx);
+  }
+
+  client.on('messageCreate', async (message) => {
+    try {
+      await handleMessage(message);
+    } catch (err) {
+      await logError('Unexpected error handling a message', err);
+    }
   });
 };
