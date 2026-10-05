@@ -1,4 +1,4 @@
-const { addMessageXp, saveNow, fmt } = require('../lib/economy');
+const { addMessageXp, recordQuest, saveNow, fmt } = require('../lib/economy');
 const { logging } = require('../lib/logging');
 
 module.exports = (client) => {
@@ -6,6 +6,8 @@ module.exports = (client) => {
     if (message.author.bot || !message.guild) return;
 
     try {
+      recordQuest(message.author.id, 'messages');
+
       const result = addMessageXp(message.author.id);
       if (result?.leveledUp) {
         await message.channel.send(
