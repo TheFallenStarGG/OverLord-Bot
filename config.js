@@ -5,7 +5,7 @@ module.exports = {
   API: 'https://openrouter.ai/api/v1',
 
   // Paste the ID of the channel where the activity log should be posted (leave '' to disable)
-  LOG_CHANNEL_ID: '',
+  LOG_CHANNEL_ID: '1556274885691572316',
   LOG_FLUSH_MS: 2000, // log entries are batched and posted this often
 
   STREAM_EDIT_MS: 1200, // how often a streaming answer is updated (Discord allows about 5 edits per 5 seconds)
