@@ -1,5 +1,6 @@
 const { peekUser, levelFromXp, xpForLevel, rankOf } = require('../lib/economy');
 const { ITEMS } = require('../lib/items');
+const { TITLES } = require('../lib/combat/gear');
 
 module.exports = {
   name: '!!rank',
@@ -15,19 +16,16 @@ module.exports = {
     const level = levelFromXp(u.xp);
     const base = xpForLevel(level);
     const next = xpForLevel(level + 1);
-    const filled = Math.floor(((xp(u) - base) / (next - base)) * 10);
+    const filled = Math.floor(((u.xp - base) / (next - base)) * 10);
     const bar = '█'.repeat(filled) + '░'.repeat(10 - filled);
 
     const badge = u.prestige ? ` ✨ Prestige ${u.prestige}` : '';
-    const title = u.title && ITEMS[u.title] ? ` · ${ITEMS[u.title].name}` : '';
+    const titleName = TITLES[u.title]?.name ?? ITEMS[u.title]?.name;
+    const title = titleName ? ` · ${titleName}` : '';
 
     await message.reply(
-      `📈 **${target.username}**${badge}${title} — Level **${level}**\n${bar} ${xp(u) - base} / ${next - base} XP to level ${level + 1}\n` +
-      `-# ${xp(u).toLocaleString('en-US')} XP total · #${rankOf(target.id, 'xp')} on \`!!leaderboard\``
+      `📈 **${target.username}**${badge}${title} — Level **${level}**\n${bar} ${u.xp - base} / ${next - base} XP to level ${level + 1}\n` +
+      `-# ${u.xp.toLocaleString('en-US')} XP total · #${rankOf(target.id, 'xp')} on \`!!leaderboard\``
     );
   },
 };
-
-function xp(user) {
-  return user.xp;
-}
