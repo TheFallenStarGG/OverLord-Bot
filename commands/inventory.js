@@ -13,7 +13,7 @@ module.exports = {
     const u = peekUser(message.author.id);
     const now = Date.now();
 
-    const supplies = idsIn('consumable')
+    const supplies = [...idsIn('consumable'), ...idsIn('battle')]
       .filter((id) => u.inventory[id])
       .map((id) => `${ITEMS[id].emoji} ${ITEMS[id].name} ×${u.inventory[id]}`);
 
