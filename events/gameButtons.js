@@ -8,6 +8,7 @@ require('../lib/games/tictactoe');
 require('../lib/games/connect4');
 require('../lib/games/blackjack');
 require('../lib/games/battleship');
+require('../lib/games/minesweeper');
 
 module.exports = (client) => {
   client.on('interactionCreate', async (interaction) => {
