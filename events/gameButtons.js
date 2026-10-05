@@ -12,6 +12,7 @@ require('../lib/games/minesweeper');
 require('../lib/games/crash');
 require('../lib/games/higherlower');
 require('../lib/games/hangman');
+require('../lib/games/trade');
 
 module.exports = (client) => {
   client.on('interactionCreate', async (interaction) => {
