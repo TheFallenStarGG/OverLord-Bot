@@ -24,6 +24,7 @@ module.exports = {
 
   // Saved data files (kept in the same folder as index.js)
   FILES: {
+    announce: path.join(__dirname, 'announce.json'),
     history: path.join(__dirname, 'history.json'),
     usage: path.join(__dirname, 'usage.json'),
     blocked: path.join(__dirname, 'blocked.json'),
