@@ -4,12 +4,13 @@ const { ITEMS, ROD_NAMES, PICK_NAMES } = require('../lib/items');
 const { TITLES, ELEMENTS, ensureProfile, playerGear } = require('../lib/combat/gear');
 const { CLASSES } = require('../lib/combat/classes');
 const { getRatings } = require('../lib/ranked');
+const { SPECIES, levelOf, looks } = require('../lib/petData');
 
 module.exports = {
   name: '!!profile',
   aliases: ['!!me'],
   usage: '!!profile [@user]',
-  description: 'Shows a full profile card: level, coins, career, gear, combat record, and ranked ratings.',
+  description: 'Shows a full profile card: level, coins, career, gear, pet, combat record, and ranked ratings.',
   access: 'free',
 
   async run(message) {
@@ -41,6 +42,9 @@ module.exports = {
     const ratings = getRatings(target.id);
     const ranked = ratings.length ? ratings.map((r) => `${r.emoji} ${r.elo} ${r.tier.emoji} (${r.wins}W-${r.losses}L)`).join('\n') : 'Unranked';
 
+    const pet = u.pet && SPECIES[u.pet.species] ? u.pet : null;
+    const petText = pet ? `${looks(pet).emoji} **${pet.name}**\n${looks(pet).name} · Level ${levelOf(pet)}` : 'No pet yet';
+
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)
       .setAuthor({ name: `${target.username}${u.prestige ? ` · ✨ Prestige ${u.prestige}` : ''}`, iconURL: target.displayAvatarURL({ size: 64 }) })
@@ -56,7 +60,8 @@ module.exports = {
           inline: true,
         },
         { name: '🏅 Ranked', value: ranked, inline: true },
-        { name: '🎒 Collection', value: `🎣 ${ROD_NAMES[u.gear.rod]}\n⛏️ ${PICK_NAMES[u.gear.pick]}\n🏷️ ${titlesOwned} title${titlesOwned === 1 ? '' : 's'} owned`, inline: true }
+        { name: '🎒 Collection', value: `🎣 ${ROD_NAMES[u.gear.rod]}\n⛏️ ${PICK_NAMES[u.gear.pick]}\n🏷️ ${titlesOwned} title${titlesOwned === 1 ? '' : 's'} owned`, inline: true },
+        { name: '🐾 Pet', value: petText, inline: true }
       );
 
     return message.reply({ embeds: [embed] });
