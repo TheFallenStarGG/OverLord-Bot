@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { DEFS, EVENT_IDS, activeList, findEvent, startEvent, endEvents, eventEmbed } = require('../lib/modifiers');
+const { DEFS, EVENT_IDS, activeList, findEvent, startEvent, endEvents, eventEmbed, getSchedule } = require('../lib/modifiers');
 const { broadcast } = require('../lib/announce');
 
 module.exports = {
@@ -11,6 +11,16 @@ module.exports = {
   async run(message, arg, ctx) {
     const [sub, ...words] = arg.split(/\s+/).filter(Boolean);
 
+    if (sub === 'schedule') {
+      if (!ctx.isOwner) return message.reply('Only the bot owner can do that.');
+      const s = getSchedule(message.guild?.id);
+      const when = (t) => (t ? `<t:${Math.floor(t / 1000)}:f> (<t:${Math.floor(t / 1000)}:R>)` : 'not set yet');
+      return message.reply(
+        '🗓️ **Saved schedule** (kept on disk, so restarts don\'t change it)\n' +
+        `🎪 Next event: ${when(s.nextEventAt)}\n📜 Next decree: ${when(s.nextDecreeAt)}\n🐉 Next boss here: ${when(s.nextBossAt)}`
+      );
+    }
+    
     if (sub === 'start' || sub === 'end') {
       if (!ctx.isOwner) return message.reply('Only the bot owner can do that.');
 
