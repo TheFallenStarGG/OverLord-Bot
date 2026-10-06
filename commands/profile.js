@@ -5,6 +5,8 @@ const { TITLES, ELEMENTS, ensureProfile, playerGear } = require('../lib/combat/g
 const { CLASSES } = require('../lib/combat/classes');
 const { getRatings } = require('../lib/ranked');
 const { SPECIES, levelOf, looks } = require('../lib/petData');
+const { currentUsurper } = require('../lib/rebellion');
+const { getActiveBounty } = require('../lib/bounty');
 
 module.exports = {
   name: '!!profile',
@@ -47,7 +49,10 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)
-      .setAuthor({ name: `${target.username}${u.prestige ? ` · ✨ Prestige ${u.prestige}` : ''}`, iconURL: target.displayAvatarURL({ size: 64 }) })
+      .setAuthor({
+        name: `${currentUsurper()?.id === target.id ? '👑 ' : ''}${target.username}${u.prestige ? ` · ✨ Prestige ${u.prestige}` : ''}${getActiveBounty()?.targetId === target.id ? ' · 🎯 Marked' : ''}`,
+        iconURL: target.displayAvatarURL({ size: 64 }),
+      })
       .setTitle(title ? `${title}` : 'Profile')
       .setThumbnail(target.displayAvatarURL({ size: 128 }))
       .addFields(
