@@ -1,4 +1,4 @@
-const { dueForEvent, startEvent, scheduleNextEvent, eventEmbed } = require('../lib/modifiers');
+const { dueForEvent, startEvent, scheduleNextEvent, eventEmbed, getSchedule } = require('../lib/modifiers');
 const { broadcast } = require('../lib/announce');
 const { logging } = require('../lib/logging');
 
@@ -10,6 +10,10 @@ module.exports = (client) => {
   const start = () => {
     if (started) return;
     started = true;
+    
+    const s = getSchedule();
+    const mins = (t) => Math.max(0, Math.round((t - Date.now()) / 60000));
+    logging('info', 'Schedule loaded', `Next event in ${mins(s.nextEventAt)} min, next decree in ${mins(s.nextDecreeAt)} min`);
 
     setInterval(async () => {
       try {
