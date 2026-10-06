@@ -6,6 +6,7 @@ const { spawnBoss, handleBossHit } = require('../lib/boss');
 const { drawIfDue } = require('../lib/lottery');
 const { fmt } = require('../lib/economy');
 const { logging } = require('../lib/logging');
+const { mult } = require('../lib/modifiers');
 
 // Bosses are rare: any message has a small chance, and a server can't get one more often than every 2 hours
 const BOSS_SPAWN_CHANCE = 1 / 600;
@@ -68,10 +69,10 @@ module.exports = (client) => {
   // Rare boss spawns
   client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild || message.channel.type !== ChannelType.GuildText) return;
-    if (Math.random() > BOSS_SPAWN_CHANCE) return;
+    if (Math.random() > BOSS_SPAWN_CHANCE * mult('bossSpawn')) return;
 
     const guildId = message.guild.id;
-    if (Date.now() - (lastBossSpawn.get(guildId) ?? 0) < BOSS_MIN_GAP_MS) return;
+    if (Date.now() - (lastBossSpawn.get(guildId) ?? 0) < BOSS_MIN_GAP_MS / mult('bossSpawn')) return;
 
     try {
       const boss = await spawnBoss(message.channel);
