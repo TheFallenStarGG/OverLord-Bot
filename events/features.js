@@ -6,12 +6,9 @@ const { spawnBoss, handleBossHit } = require('../lib/boss');
 const { drawIfDue } = require('../lib/lottery');
 const { fmt } = require('../lib/economy');
 const { logging } = require('../lib/logging');
-const { mult } = require('../lib/modifiers');
+const { bossDue, bossSpawned, bossRetryLater } = require('../lib/modifiers');
 
-// Bosses are rare: any message has a small chance, and a server can't get one more often than every 2 hours
-const BOSS_SPAWN_CHANCE = 1 / 600;
-const BOSS_MIN_GAP_MS = 2 * 60 * 60 * 1000;
-const lastBossSpawn = new Map(); // guildId -> time
+// Bosses follow a saved schedule (2 to 6 hours apart, see lib/modifiers.js), so restarting the bot doesn't affect them
 
 async function handleShopButton(interaction) {
   // Button IDs look like shop:<action>:<current page>:<who opened it>
@@ -69,18 +66,16 @@ module.exports = (client) => {
   // Rare boss spawns
   client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild || message.channel.type !== ChannelType.GuildText) return;
-    if (Math.random() > BOSS_SPAWN_CHANCE * mult('bossSpawn')) return;
 
     const guildId = message.guild.id;
-    if (Date.now() - (lastBossSpawn.get(guildId) ?? 0) < BOSS_MIN_GAP_MS / mult('bossSpawn')) return;
+    if (!bossDue(guildId)) return;
 
     try {
       const boss = await spawnBoss(message.channel);
-      if (boss) {
-        lastBossSpawn.set(guildId, Date.now());
-        logging('info', 'Boss spawned', `${boss.name} in #${message.channel.name} (${message.guild.name})`);
-      }
+      bossSpawned(guildId); // a boss appeared (or one was already there), so schedule the next one
+      if (boss) logging('info', 'Boss spawned', `${boss.name} in #${message.channel.name} (${message.guild.name})`);
     } catch (err) {
+      bossRetryLater(guildId);
       logging('error', 'Boss spawn failed', err);
     }
   });
