@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { DEFS, activeList, findDecree, issueDecree, getTreasury, decreeEmbed } = require('../lib/modifiers');
+const { DECREE_IDS, activeList, findDecree, issueDecree, getTreasury, decreeEmbed } = require('../lib/modifiers');
 
 module.exports = {
   name: '!!decree',
@@ -11,12 +11,12 @@ module.exports = {
     if (arg.startsWith('issue')) {
       if (!ctx.isOwner) return message.reply('Only the bot owner can issue decrees.');
       const id = findDecree(arg.slice(5).trim()) ?? undefined;
-      if (arg.slice(5).trim() && !id) return message.reply(`Unknown decree. Options: ${Object.keys(DEFS).map((d) => `\`${d}\``).join(', ')}.`);
+      if (arg.slice(5).trim() && !id) return message.reply(`Unknown decree. Options: ${DECREE_IDS.map((d) => `\`${d}\``).join(', ')}.`);
       const entry = issueDecree({ id });
       return message.reply({ embeds: [decreeEmbed(entry, 'The Overlord speaks!')] });
     }
 
-    const active = activeList();
+    const active = activeList().filter((e) => e.def.decree);
     const t = getTreasury();
     const filled = Math.floor((t.amount / t.goal) * 10);
 
