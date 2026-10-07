@@ -7,6 +7,7 @@ const { drawIfDue } = require('../lib/lottery');
 const { fmt } = require('../lib/economy');
 const { logging } = require('../lib/logging');
 const { bossDue, bossSpawned, bossRetryLater } = require('../lib/modifiers');
+const { getChannel } = require('../lib/announce');
 
 // Bosses follow a saved schedule (2 to 6 hours apart, see lib/modifiers.js), so restarting the bot doesn't affect them
 
@@ -63,20 +64,23 @@ module.exports = (client) => {
     }
   });
 
-  // Rare boss spawns
+  // Rare boss spawns: only in servers that picked an events channel, and always in that channel
   client.on('messageCreate', async (message) => {
-    if (message.author.bot || !message.guild || message.channel.type !== ChannelType.GuildText) return;
+    if (message.author.bot || !message.guild) return;
 
     const guildId = message.guild.id;
-    if (!bossDue(guildId)) return;
+    const channelId = getChannel(guildId);
+    if (!channelId || !bossDue(guildId)) return;
 
     try {
-      const boss = await spawnBoss(message.channel);
+      const channel = await client.channels.fetch(channelId);
+      if (!channel?.isTextBased()) throw new Error('The events channel is missing');
+      const boss = await spawnBoss(channel);
       bossSpawned(guildId); // a boss appeared (or one was already there), so schedule the next one
-      if (boss) logging('info', 'Boss spawned', `${boss.name} in #${message.channel.name} (${message.guild.name})`);
+      if (boss) logging('info', 'Boss spawned', `${boss.name} in #${channel.name} (${message.guild.name})`);
     } catch (err) {
       bossRetryLater(guildId);
-      logging('error', 'Boss spawn failed', err);
+      logging('warn', 'Boss spawn failed', err.message);
     }
   });
 
