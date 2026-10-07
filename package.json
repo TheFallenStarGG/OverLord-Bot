@@ -1,11 +1,12 @@
 {
-  "name": "Overlorder-Bot",
+  "name": "The-Overlord-Bot",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
+    "@libsql/client": "^0.15.0",
     "discord.js": "^14.0.0"
   },
   "engines": {
