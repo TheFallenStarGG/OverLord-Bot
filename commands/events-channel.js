@@ -4,7 +4,7 @@ const { getChannel, setChannel, clearChannel } = require('../lib/announce');
 module.exports = {
   name: '!!events-channel',
   usage: '!!events-channel [#channel | off]',
-  description: 'Picks where I post the Gazette, world events, boss fights, and update notes. Needs Manage Server. Use it with no channel to see the current one, or off to stop.'
+  description: 'Picks where I post the Gazette, world events, boss fights, and update notes. Needs Manage Server. Use it with no channel to see the current one, or off to stop.',
   access: 'free',
 
   async run(message, arg, ctx) {
