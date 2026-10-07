@@ -4,7 +4,7 @@ const { getChannel, setChannel, clearChannel } = require('../lib/announce');
 module.exports = {
   name: '!!events-channel',
   usage: '!!events-channel [#channel | off]',
-  description: 'Picks where I announce new updates with an @everyone ping. Needs Manage Server. Use it with no channel to see the current one, or `off` to stop.',
+  description: 'Picks where I post the Gazette, world events, boss fights, and update notes. Needs Manage Server. Use it with no channel to see the current one, or off to stop.'
   access: 'free',
 
   async run(message, arg, ctx) {
@@ -35,7 +35,6 @@ module.exports = {
     }
 
     setChannel(message.guild.id, channel.id);
-    const warn = perms.has(PermissionFlagsBits.MentionEveryone) ? '' : '\n⚠️ I don\'t have **Mention @everyone** there, so I won\'t be able to ping.';
-    return message.reply(`Done. New updates will be announced in ${channel}.${warn}`);
-  },
+    return message.reply(`Done! The Gazette, world events, bosses, and new updates will appear in ${channel}.`);
+},
 };
