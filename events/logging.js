@@ -1,5 +1,6 @@
 const { version: discordJsVersion } = require('discord.js');
 const { setClient, logging, flushAll } = require('../lib/logging');
+const storage = require('../lib/storage');
 
 module.exports = (client, ctx) => {
   setClient(client);
@@ -40,8 +41,10 @@ module.exports = (client, ctx) => {
   client.once('ready', onReady);
 
   // Shutdown (when the host stops or restarts the bot)
-  const shutdown = async (signal) => {
+    const shutdown = async (signal) => {
     logging('warn', 'Bot shutting down', signal);
+    process.emit('exit', 0); // runs the files' own "save now" hooks (they only queue their data)
+    await Promise.race([storage.flush(), new Promise((resolve) => setTimeout(resolve, 8000))]);
     await flushAll();
     process.exit(0);
   };
