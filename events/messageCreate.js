@@ -1,6 +1,7 @@
 const { handleChat } = require('../lib/chat');
 const { logging, whoWhere } = require('../lib/logging');
 const { isChatThread } = require('../lib/threads');
+const { maybeNudge } = require('../lib/donate');
 
 module.exports = (client, ctx) => {
   // Lets a command have extra names, like !!lb for !!leaderboard
@@ -47,7 +48,9 @@ module.exports = (client, ctx) => {
 
       logging('info', 'Command used', `${command.name} by ${whoWhere(message)}`);
       try {
-        return await command.run(message, arg, msgCtx);
+        await command.run(message, arg, msgCtx);
+        if (command.name !== '!!donate') maybeNudge(message); // rarely shows a self-deleting donation reminder
+        return;
       } catch (err) {
         logging('error', `Command ${command.name} failed`, err);
         return message.reply('Something went wrong running that command.').catch(() => {});
