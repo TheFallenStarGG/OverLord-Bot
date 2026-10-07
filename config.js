@@ -7,6 +7,7 @@ module.exports = {
   // Paste the ID of the channel where the activity log should be posted (leave '' to disable)
   LOG_CHANNEL_ID: '1556274885691572316',
   LOG_FLUSH_MS: 2000, // log entries are batched and posted this often
+  LOG_ALL_ACTIVITY: false, // true = post every command to the log channel (too noisy once the bot is public)
 
   STREAM_EDIT_MS: 1200, // how often a streaming answer is updated (Discord allows about 5 edits per 5 seconds)
 
@@ -27,11 +28,9 @@ module.exports = {
     modifiers: path.join(__dirname, 'modifiers.json'),
     world: path.join(__dirname, 'world.json'),
     announce: path.join(__dirname, 'announce.json'),
-    history: path.join(__dirname, 'history.json'),
     usage: path.join(__dirname, 'usage.json'),
     blocked: path.join(__dirname, 'blocked.json'),
     ratings: path.join(__dirname, 'ratings.json'),
-    threads: path.join(__dirname, 'threads.json'),
     economy: path.join(__dirname, 'economy.json'),
     lottery: path.join(__dirname, 'lottery.json'),
     ranked: path.join(__dirname, 'ranked.json'),
