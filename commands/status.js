@@ -1,26 +1,22 @@
 const os = require('os');
-const fs = require('fs');
 const { version: discordJsVersion } = require('discord.js');
-const { FILES, DAILY_LIMIT, BLOCKED_MODELS } = require('../config');
-const { histories } = require('../lib/memory');
+const { DAILY_LIMIT } = require('../config');
 const { todayCount } = require('../lib/usage');
-const { blockedExtra, ratings, badModels } = require('../lib/models');
+const { status: dbStatus } = require('../lib/storage');
 const { formatDuration, formatBytes } = require('../lib/utils');
 
 module.exports = {
   name: '!!status',
   usage: '!!status',
-  description: 'Shows technical stats: uptime, latency, memory, versions, saved data, and usage.',
+  description: 'Shows technical stats: uptime, latency, memory, versions, database, and Gazette AI usage.',
   access: 'owner',
 
   async run(message, arg, ctx) {
     const { client, commands } = ctx;
 
-    // Round trip: how long it takes to send a reply
     const sent = await message.reply('Checking...');
     const roundTrip = sent.createdTimestamp - message.createdTimestamp;
 
-    // Event loop delay: how long the bot takes to get to a task that is waiting
     const lagStart = process.hrtime.bigint();
     await new Promise((resolve) => setImmediate(resolve));
     const loopLag = Number(process.hrtime.bigint() - lagStart) / 1e6;
@@ -28,18 +24,12 @@ module.exports = {
     const mem = process.memoryUsage();
     const load = os.loadavg().map((n) => n.toFixed(2)).join(' / ');
 
-    let storedMessages = 0;
-    for (const h of histories.values()) storedMessages += h.length;
-
-    const files = Object.entries(FILES).map(([name, file]) => {
-      try {
-        return `${name} ${formatBytes(fs.statSync(file).size)}`;
-      } catch {
-        return `${name} (none yet)`;
-      }
-    });
-
-    const failingNow = [...badModels.values()].filter((t) => t > Date.now()).length;
+    const db = dbStatus();
+    const hours = (Date.now() - db.startedAt) / 3600000;
+    const pace =
+      hours >= 1
+        ? `about ${Math.round((db.rowsWritten / hours) * 24 * 30).toLocaleString('en-US')} per month at this pace`
+        : 'too early to estimate';
 
     const lines = [
       `Uptime:          ${formatDuration(process.uptime())} (Discord session ${formatDuration((client.uptime ?? 0) / 1000)})`,
@@ -59,13 +49,13 @@ module.exports = {
       `Cached:          ${client.channels.cache.size} channels, ${client.users.cache.size} users`,
       `Commands:        ${commands.size} loaded`,
       '',
-      `Chat memory:     ${histories.size} channels, ${storedMessages} saved messages`,
-      `Data files:      ${files.join(', ')}`,
+      `Database:        ${db.connected ? 'connected' : 'NOT connected'}, ${db.files} files, ${db.rows} rows`,
+      `Rows written:    ${db.rowsWritten.toLocaleString('en-US')} since start (${pace}; free limit 10,000,000)`,
+      `Last save:       ${db.lastSaveAt ? formatDuration((Date.now() - db.lastSaveAt) / 1000) + ' ago' : 'nothing saved yet'}${db.waiting ? `, ${db.waiting} file(s) waiting` : ''}`,
+      db.lastError ? `Last DB error:   ${db.lastError}` : null,
       '',
-      `Requests today:  ${todayCount()} / ${DAILY_LIMIT}`,
-      `Blocked:         ${BLOCKED_MODELS.length + blockedExtra.length} patterns`,
-      `Models rated:    ${Object.keys(ratings).length}, ${failingNow} failing right now`,
-    ];
+      `Gazette AI:      ${todayCount()} / ${DAILY_LIMIT} requests today`,
+    ].filter((line) => line !== null);
 
     await sent.edit('```\n' + lines.join('\n') + '\n```');
   },
