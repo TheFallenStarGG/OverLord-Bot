@@ -4,6 +4,7 @@ const { PermissionFlagsBits } = require('discord.js');
 const { API, FILES, LOG_CHANNEL_ID, DAILY_LIMIT } = require('../config');
 const { getUsableModels } = require('../lib/models');
 const { todayCount } = require('../lib/usage');
+const { status: dbStatus } = require('../lib/storage');
 
 const OK = '✅';
 const WARN = '⚠️';
@@ -21,9 +22,7 @@ const PERMISSIONS = {
   SendMessages: 'send messages',
   ReadMessageHistory: 'read message history (reply context, polls)',
   AddReactions: 'add reactions (polls)',
-  CreatePublicThreads: 'create threads (!!chat)',
-  SendMessagesInThreads: 'send messages in threads',
-};
+  };
 
 module.exports = {
   name: '!!doctor',
@@ -48,7 +47,7 @@ module.exports = {
     results.push(
       process.env.OWNER_ID
         ? `${OK} OWNER_ID is set`
-        : `${WARN} OWNER_ID is not set: owner commands are open to everyone, and \`!!block\`, \`!!unblock\`, \`!!history\` and \`!!doctor\` refuse to run`
+        : `${WARN} OWNER_ID is not set: owner commands are locked for everyone until you set it`
     );
     results.push(`${OK} Daily request limit: ${DAILY_LIMIT} ${process.env.DAILY_LIMIT ? '(from DAILY_LIMIT)' : '(default)'}, ${todayCount()} used today`);
 
@@ -89,33 +88,11 @@ module.exports = {
       results.push(`${BAD} Could not load the model list: ${err.message}`);
     }
 
-    // Data folder and files
-    const testFile = path.join(path.dirname(FILES.history), '.doctor-test');
-    try {
-      fs.writeFileSync(testFile, 'ok');
-      fs.readFileSync(testFile);
-      fs.unlinkSync(testFile);
-      results.push(`${OK} Can write to the data folder`);
-    } catch (err) {
-      results.push(`${BAD} Cannot write to the data folder: ${err.message}`);
-    }
-
-    const corrupt = [];
-    let found = 0;
-    for (const [name, file] of Object.entries(FILES)) {
-      if (!fs.existsSync(file)) continue;
-      found++;
-      try {
-        JSON.parse(fs.readFileSync(file, 'utf8'));
-      } catch {
-        corrupt.push(`${name}.json`);
-      }
-    }
-    results.push(
-      corrupt.length
-        ? `${BAD} Corrupted data file(s): ${corrupt.join(', ')} (delete them to start fresh)`
-        : `${OK} Data files are readable (${found} found)`
-    );
+    // Database
+    const db = dbStatus();
+    if (!db.connected) results.push(`${BAD} Database is not connected`);
+    else if (db.lastError) results.push(`${BAD} The last database save failed: ${db.lastError}`);
+    else results.push(`${OK} Database connected (${db.files} files, ${db.rows} rows, ${db.waiting} waiting to save)`);
 
     // Log channel
     if (!LOG_CHANNEL_ID) {
