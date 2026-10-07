@@ -1,7 +1,8 @@
-const { handleChat } = require('../lib/chat');
 const { logging, whoWhere } = require('../lib/logging');
-const { isChatThread } = require('../lib/threads');
 const { maybeNudge } = require('../lib/donate');
+
+const FLOOD_MS = 1000; // one command per person per second
+const lastCommandAt = new Map();
 
 module.exports = (client, ctx) => {
   // Lets a command have extra names, like !!lb for !!leaderboard
@@ -20,11 +21,10 @@ module.exports = (client, ctx) => {
     const arg = rawArg.toLowerCase();
     const content = trimmed.toLowerCase();
 
-    // Optional: set OWNER_ID to restrict the owner commands to just you
     const isOwner = Boolean(process.env.OWNER_ID) && message.author.id === process.env.OWNER_ID;
     const msgCtx = { ...ctx, isOwner, rawArg };
 
-    // Some commands watch for follow-up messages (like the "proceed" confirmation)
+    // Some commands watch for follow-up messages (like confirmations)
     for (const command of ctx.commands.values()) {
       if (command.intercept && (await command.intercept(message, content))) {
         logging('info', 'Confirmed action', `${command.name} by ${whoWhere(message)}`);
@@ -32,35 +32,30 @@ module.exports = (client, ctx) => {
       }
     }
 
-    // Run a command if the message starts with one
     const command = ctx.commands.get(cmdName) ?? aliasMap.get(cmdName);
-    if (command) {
-      if (command.access !== 'free') {
-        if (!process.env.OWNER_ID) {
-          if (command.access === 'owner-required') {
-            return message.reply('Set the `OWNER_ID` environment variable to your user ID to use this command.');
-          }
-        } else if (!isOwner) {
-          logging('warn', 'Blocked command attempt', `${command.name} by ${whoWhere(message)} (not the owner)`);
-          return; // not the owner: ignore silently
-        }
-      }
+    if (!command) return;
 
-      logging('info', 'Command used', `${command.name} by ${whoWhere(message)}`);
-      try {
-        await command.run(message, arg, msgCtx);
-        if (command.name !== '!!donate') maybeNudge(message); // rarely shows a self-deleting donation reminder
-        return;
-      } catch (err) {
-        logging('error', `Command ${command.name} failed`, err);
-        return message.reply('Something went wrong running that command.').catch(() => {});
-      }
+    // Owner commands: if OWNER_ID isn't set, nobody gets them
+    if (command.access !== 'free' && !isOwner) {
+      logging('warn', 'Blocked command attempt', `${command.name} by ${whoWhere(message)} (not the owner)`);
+      return;
     }
 
-    // AI chat: when pinged, or for any message in a chat thread (start a message with // to skip the bot)
-    const inChatThread = message.channel.isThread() && isChatThread(message.channel.id);
-    if (message.mentions.users.has(client.user.id) || (inChatThread && !trimmed.startsWith('//'))) {
-      return handleChat(message, msgCtx);
+    // Simple flood guard
+    if (!isOwner) {
+      const now = Date.now();
+      if (now - (lastCommandAt.get(message.author.id) ?? 0) < FLOOD_MS) return;
+      lastCommandAt.set(message.author.id, now);
+      if (lastCommandAt.size > 5000) lastCommandAt.clear();
+    }
+
+    logging('info', 'Command used', `${command.name} by ${whoWhere(message)}`);
+    try {
+      await command.run(message, arg, msgCtx);
+      if (command.name !== '!!donate') maybeNudge(message);
+    } catch (err) {
+      logging('error', `Command ${command.name} failed`, err);
+      message.reply('Something went wrong running that command.').catch(() => {});
     }
   }
 
