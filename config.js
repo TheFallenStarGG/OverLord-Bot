@@ -35,5 +35,8 @@ module.exports = {
     economy: path.join(__dirname, 'economy.json'),
     lottery: path.join(__dirname, 'lottery.json'),
     ranked: path.join(__dirname, 'ranked.json'),
+    stocks: path.join(__dirname, 'stocks.json'),
+    weather: path.join(__dirname, 'weather.json'),
+    muscle: path.join(__dirname, 'muscle.json'),
   },
 };
