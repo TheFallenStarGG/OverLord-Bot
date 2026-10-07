@@ -38,5 +38,7 @@ module.exports = {
     stocks: path.join(__dirname, 'stocks.json'),
     weather: path.join(__dirname, 'weather.json'),
     muscle: path.join(__dirname, 'muscle.json'),
+    companies: path.join(__dirname, 'companies.json'),
+    realm: path.join(__dirname, 'realm.json'),
   },
 };
