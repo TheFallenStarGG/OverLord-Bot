@@ -1,11 +1,12 @@
 const { addMessageXp, recordQuest, saveNow, fmt } = require('../lib/economy');
 const { data: world } = require('../lib/world');
 const { logging } = require('../lib/logging');
+const { isUserBlocked } = require('../lib/blacklist');
 
 module.exports = (client) => {
   client.on('messageCreate', async (message) => {
-    if (message.author.bot || !message.guild) return;
-
+    if (message.author.bot || !message.guild || isUserBlocked(message.author.id)) return;
+    
     try {
       recordQuest(message.author.id, 'messages');
 
