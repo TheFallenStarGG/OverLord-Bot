@@ -31,20 +31,32 @@ async function main() {
   // Load all saved data from the database BEFORE any other file reads its data
   await storage.init(FILES, SCOPED_FILES);
 
-  // Load every file in commands/ automatically
+  // Load every file in commands/ automatically (skip broken files instead of crashing)
   const commands = new Map();
   const commandsDir = path.join(__dirname, 'commands');
   for (const file of fs.readdirSync(commandsDir).filter((f) => f.endsWith('.js'))) {
-    const command = require(path.join(commandsDir, file));
-    commands.set(command.name, command);
+    try {
+      const command = require(path.join(commandsDir, file));
+      if (!command?.name || typeof command.run !== 'function') {
+        console.error(`Skipped command ${file}: missing name or run()`);
+        continue;
+      }
+      commands.set(command.name, command);
+    } catch (err) {
+      console.error(`Failed to load command ${file}:`, err.message);
+    }
   }
   console.log(`Loaded ${commands.size} commands: ${[...commands.keys()].join(', ')}`);
 
-  // Load every file in events/ automatically
+  // Load every file in events/ automatically (skip broken files instead of crashing)
   const ctx = { client, commands };
   const eventsDir = path.join(__dirname, 'events');
   for (const file of fs.readdirSync(eventsDir).filter((f) => f.endsWith('.js'))) {
-    require(path.join(eventsDir, file))(client, ctx);
+    try {
+      require(path.join(eventsDir, file))(client, ctx);
+    } catch (err) {
+      console.error(`Failed to load event ${file}:`, err.message);
+    }
   }
 
   client.login(process.env.TOKEN);
