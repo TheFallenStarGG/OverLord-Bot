@@ -8,7 +8,7 @@ module.exports = {
   name: '!!leaderboard',
   aliases: ['!!lb'],
   usage: '!!leaderboard',
-  description: 'Shows the richest members and the top chatters side by side.',
+  description: 'Shows this server\'s richest members and top chatters side by side.',
   access: 'free',
 
   async run(message) {
