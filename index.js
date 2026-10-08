@@ -1,7 +1,7 @@
-const { Client, GatewayIntentBits, Partials } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, Guild } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const { FILES } = require('./config');
+const { FILES, SCOPED_FILES } = require('./config');
 const storage = require('./lib/storage');
 
 const client = new Client({
@@ -15,9 +15,21 @@ const client = new Client({
   allowedMentions: { parse: [], repliedUser: false },
 });
 
+// Every event runs "inside" the server it came from, so per-server data just works everywhere
+const guildIdOf = (arg) => {
+  if (!arg || typeof arg !== 'object') return null;
+  if (arg instanceof Guild) return arg.id;
+  return arg.guildId ?? arg.guild?.id ?? arg.message?.guildId ?? null;
+};
+const originalEmit = client.emit.bind(client);
+client.emit = (event, ...args) => {
+  const guildId = guildIdOf(args[0]);
+  return guildId ? storage.runIn(guildId, () => originalEmit(event, ...args)) : originalEmit(event, ...args);
+};
+
 async function main() {
   // Load all saved data from the database BEFORE any other file reads its data
-  await storage.init(FILES);
+  await storage.init(FILES, SCOPED_FILES);
 
   // Load every file in commands/ automatically
   const commands = new Map();
