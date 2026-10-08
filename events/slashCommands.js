@@ -1,13 +1,8 @@
+const { MessageFlags } = require('discord.js');
 const { logging, whoWhere } = require('../lib/logging');
 const { maybeNudge } = require('../lib/donate');
-const {
-  createMessageShim,
-  buildSlashPayload,
-  toSlashCommandJSON,
-} = require('../lib/slashBridge');
-
-const FLOOD_MS = 1000;
-const lastSlashAt = new Map();
+const { createMessageShim, buildSlashPayload, toSlashCommandJSON } = require('../lib/slashBridge');
+const guard = require('../lib/guard');
 
 module.exports = (client, ctx) => {
   client._overlordCommands = ctx.commands;
@@ -46,33 +41,27 @@ module.exports = (client, ctx) => {
     const { command, rawArg, arg } = buildSlashPayload(interaction);
     if (!command) {
       return interaction
-        .reply({ content: 'That slash command is not available right now.', ephemeral: true })
+        .reply({ content: 'That slash command is not available right now.', flags: MessageFlags.Ephemeral })
         .catch(() => {});
     }
 
-    const isOwner =
-      Boolean(process.env.OWNER_ID) && interaction.user.id === process.env.OWNER_ID;
+    const isOwner = Boolean(process.env.OWNER_ID) && interaction.user.id === process.env.OWNER_ID;
 
     if (command.access !== 'free' && !isOwner) {
-      logging(
-        'warn',
-        'Blocked command attempt',
-        `/${interaction.commandName} by ${interaction.user.tag} (not the owner)`
-      );
+      logging('warn', 'Blocked command attempt', `/${interaction.commandName} by ${interaction.user.tag} (not the owner)`);
       return interaction
-        .reply({ content: 'That command is owner-only.', ephemeral: true })
+        .reply({ content: 'That command is owner-only.', flags: MessageFlags.Ephemeral })
         .catch(() => {});
     }
 
-    if (!isOwner) {
-      const now = Date.now();
-      if (now - (lastSlashAt.get(interaction.user.id) ?? 0) < FLOOD_MS) {
-        return interaction
-          .reply({ content: 'Slow down a second.', ephemeral: true })
-          .catch(() => {});
-      }
-      lastSlashAt.set(interaction.user.id, now);
-      if (lastSlashAt.size > 5000) lastSlashAt.clear();
+    const message = createMessageShim(interaction);
+
+    // Blacklist, flood limit, and abuse tracking (same checks as the !! commands)
+    const check = await guard.preflight(message, command, { isOwner, viaSlash: true });
+    if (!check.ok) {
+      return interaction
+        .reply({ content: check.reply ?? 'You cannot use that right now.', flags: MessageFlags.Ephemeral })
+        .catch(() => {});
     }
 
     try {
@@ -81,14 +70,9 @@ module.exports = (client, ctx) => {
       return;
     }
 
-    const message = createMessageShim(interaction);
     const msgCtx = { ...ctx, isOwner, rawArg, viaSlash: true };
 
-    logging(
-      'info',
-      'Command used',
-      `/${interaction.commandName} (slash → ${command.name}) by ${whoWhere(message)}`
-    );
+    logging('info', 'Command used', `/${interaction.commandName} (slash → ${command.name}) by ${whoWhere(message)}`);
 
     try {
       await command.run(message, arg, msgCtx);
@@ -110,8 +94,7 @@ module.exports = (client, ctx) => {
         }
       }
     } catch (err) {
-      logging('error', `Command ${command.name} failed (slash)`, err);
-      const payload = { content: 'Something went wrong running that command.' };
+      const payload = { content: guard.friendlyError(err, `${command.name} (slash)`) };
       if (interaction.deferred && !interaction.replied) {
         await interaction.editReply(payload).catch(() => {});
       } else {
