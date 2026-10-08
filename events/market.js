@@ -5,6 +5,7 @@ const { claimAnnouncement, announceEmbed } = require('../lib/weather');
 const { broadcast } = require('../lib/announce');
 const { fmt } = require('../lib/economy');
 const { logging } = require('../lib/logging');
+const { forEachGuild } = require('../lib/storage');
 
 const CHECK_MS = 60 * 1000; // how often everything is checked
 const BIG_THEFT = 1000; // thefts at least this big are announced
@@ -58,9 +59,10 @@ module.exports = (client) => {
   const start = () => {
     if (started) return;
     started = true;
-    setTimeout(() => check(client), 20 * 1000);
-    setInterval(() => check(client), CHECK_MS);
-  };
+    const checkAll = () => forEachGuild(client, () => check(client));
+    setTimeout(checkAll, 20 * 1000);
+    setInterval(checkAll, CHECK_MS);
+};
   client.once('clientReady', start);
   client.once('ready', start);
 };
