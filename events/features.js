@@ -8,6 +8,7 @@ const { fmt } = require('../lib/economy');
 const { logging } = require('../lib/logging');
 const { bossDue, bossSpawned, bossRetryLater } = require('../lib/modifiers');
 const { getChannel } = require('../lib/announce');
+const { forEachGuild } = require('../lib/storage');
 
 // Bosses follow a saved schedule (2 to 6 hours apart, see lib/modifiers.js), so restarting the bot doesn't affect them
 
@@ -86,6 +87,6 @@ module.exports = (client) => {
 
   // The daily lottery draw happens once a new day (UTC) starts
   setInterval(() => {
-    drawIfDue(client).catch((err) => logging('error', 'Lottery draw failed', err));
+    forEachGuild(client, () => drawIfDue(client));
   }, 60 * 1000);
 };
