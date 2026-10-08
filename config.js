@@ -42,5 +42,8 @@ module.exports = {
     muscle: path.join(__dirname, 'muscle.json'),
     companies: path.join(__dirname, 'companies.json'),
     realm: path.join(__dirname, 'realm.json'),
+    blacklist: path.join(__dirname, 'blacklist.json'),
+    guildmeta: path.join(__dirname, 'guildmeta.json'),
+    digest: path.join(__dirname, 'digest.json'),
   },
 };
