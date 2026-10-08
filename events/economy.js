@@ -1,4 +1,5 @@
 const { addMessageXp, recordQuest, saveNow, fmt } = require('../lib/economy');
+const { data: world } = require('../lib/world');
 const { logging } = require('../lib/logging');
 
 module.exports = (client) => {
@@ -10,9 +11,15 @@ module.exports = (client) => {
 
       const result = addMessageXp(message.author.id);
       if (result?.leveledUp) {
-        await message.channel.send(
-          `🎉 <@${message.author.id}> reached **level ${result.level}**! Bonus: **${fmt(result.reward)}**`
-        );
+        const channelId = world.settings.levelChannelId;
+        if (channelId) {
+          const channel = await client.channels.fetch(channelId).catch(() => null);
+          if (channel?.guildId === message.guild.id) {
+            await channel
+              .send(`🎉 <@${message.author.id}> reached **level ${result.level}**! Bonus: **${fmt(result.reward)}**`)
+              .catch(() => {});
+          }
+        }
         logging('info', 'Level up', `${message.author.username} reached level ${result.level}`);
       }
     } catch (err) {
