@@ -1,6 +1,7 @@
 const { handleRematch } = require('../lib/games/duel');
 const { handleReady, checkAutoStart } = require('../lib/tournament');
 const { logging } = require('../lib/logging');
+const { forEachGuild } = require('../lib/storage');
 
 module.exports = (client) => {
   client.on('interactionCreate', async (interaction) => {
@@ -16,6 +17,6 @@ module.exports = (client) => {
   });
 
   setInterval(() => {
-    checkAutoStart(client).catch((err) => logging('error', 'Tournament check failed', err));
+    forEachGuild(client, () => checkAutoStart(client));
   }, 60 * 1000);
 };
