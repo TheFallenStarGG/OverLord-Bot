@@ -1,5 +1,6 @@
 const { logging, whoWhere } = require('../lib/logging');
 const { maybeNudge } = require('../lib/donate');
+const { handleConfirm } = require('../lib/confirm');
 
 const FLOOD_MS = 1000; // one command per person per second
 const lastCommandAt = new Map();
@@ -23,6 +24,9 @@ module.exports = (client, ctx) => {
 
     const isOwner = Boolean(process.env.OWNER_ID) && message.author.id === process.env.OWNER_ID;
     const msgCtx = { ...ctx, isOwner, rawArg };
+
+    // Pending yes/no confirms (large give, cashout, etc.)
+    if (await handleConfirm(message, content)) return;
 
     // Some commands watch for follow-up messages (like confirmations)
     for (const command of ctx.commands.values()) {
