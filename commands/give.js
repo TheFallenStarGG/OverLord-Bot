@@ -1,4 +1,5 @@
 const { peekUser, spendCoins, addCoins, fmt } = require('../lib/economy');
+const { noteTransfer } = require('../lib/abuse');
 
 module.exports = {
   name: '!!give',
@@ -25,6 +26,7 @@ module.exports = {
           return msg.reply(`You only have ${fmt(peekUser(msg.author.id).coins)}.`);
         }
         addCoins(target.id, amount);
+        noteTransfer(msg, target.id, amount);
         return msg.reply({
           content: `🎁 <@${msg.author.id}> gave **${fmt(amount)}** to <@${target.id}>!`,
           allowedMentions: { users: [msg.author.id, target.id] },
@@ -34,10 +36,11 @@ module.exports = {
         `You're about to give **${fmt(amount)}** to **${target.username}**. Type **yes** within 30s to confirm, or **no** to cancel.`
       );
     }
-    
+
     if (!amount || amount < 1) return message.reply(`How many coins? ${usage}`);
     if (!spendCoins(message.author.id, amount)) return message.reply(`You only have ${fmt(balance)}.`);
     addCoins(target.id, amount);
+    noteTransfer(message, target.id, amount);
 
     return message.reply({
       content: `🎁 <@${message.author.id}> gave **${fmt(amount)}** to <@${target.id}>!`,
