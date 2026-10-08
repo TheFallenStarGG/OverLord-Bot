@@ -5,8 +5,9 @@ const { RAID_HP, RAID_MS, commandUsed, meterInfo, expireUsurper, startRaid, fini
 const { dueForBounty, startBounty, scheduleNextBounty, expireBounty, bountyEmbed } = require('../lib/bounty');
 const { handleUsurpButton } = require('../lib/throne');
 const { gazetteDue, publishGazette } = require('../lib/gazette');
-const { channelIds, broadcast } = require('../lib/announce');
+const { channelIds, broadcast, getChannel } = require('../lib/announce');
 const { logging } = require('../lib/logging');
+const { forEachGuild, currentGuild } = require('../lib/storage');
 
 const CHECK_MS = 60 * 1000;
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
@@ -84,14 +85,14 @@ async function tick(client) {
 
   await safe('Raid', () => trySpawnRaid(client));
 
-  await safe('Bounty', async () => {
+    await safe('Bounty', async () => {
     const done = expireBounty();
     if (done) {
       await broadcast(client, {
         embeds: [card(0x2ecc71, '🛡️ A bounty has ended', `<@${done.targetId}> survived and keeps **${fmt(done.payout)}** of the reward!`)],
       });
     }
-    if (dueForBounty()) {
+    if (getChannel(currentGuild()) && dueForBounty()) {
       const b = startBounty();
       scheduleNextBounty();
       if (b) {
@@ -106,8 +107,9 @@ async function tick(client) {
   });
 
   await safe('Gazette', async () => {
-    if (gazetteDue()) await publishGazette(client);
+    if (getChannel(currentGuild()) && gazetteDue()) await publishGazette(client);
   });
+
 }
 
 module.exports = (client) => {
@@ -131,9 +133,10 @@ module.exports = (client) => {
   const start = () => {
     if (started) return;
     started = true;
-    recoverRaid();
-    setTimeout(() => tick(client), 15 * 1000);
-    setInterval(() => tick(client), CHECK_MS);
+    forEachGuild(client, () => recoverRaid());
+    const tickAll = () => forEachGuild(client, () => tick(client));
+    setTimeout(tickAll, 15 * 1000);
+    setInterval(tickAll, CHECK_MS);
   };
   client.once('clientReady', start);
   client.once('ready', start);
