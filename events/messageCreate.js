@@ -1,9 +1,7 @@
 const { logging, whoWhere } = require('../lib/logging');
 const { maybeNudge } = require('../lib/donate');
 const { handleConfirm } = require('../lib/confirm');
-
-const FLOOD_MS = 1000; // one command per person per second
-const lastCommandAt = new Map();
+const guard = require('../lib/guard');
 
 module.exports = (client, ctx) => {
   // Lets a command have extra names, like !!lb for !!leaderboard
@@ -25,7 +23,10 @@ module.exports = (client, ctx) => {
     const isOwner = Boolean(process.env.OWNER_ID) && message.author.id === process.env.OWNER_ID;
     const msgCtx = { ...ctx, isOwner, rawArg };
 
-    // Pending yes/no confirms (large give, cashout, etc.)
+    // Blacklisted users and servers are ignored completely
+    if (!isOwner && guard.isBlocked(message.author.id, message.guild?.id)) return;
+
+    // Pending yes/no confirms (large give, cashout, deletedata, etc.)
     if (await handleConfirm(message, content)) return;
 
     // Some commands watch for follow-up messages (like confirmations)
@@ -45,12 +46,11 @@ module.exports = (client, ctx) => {
       return;
     }
 
-    // Simple flood guard
-    if (!isOwner) {
-      const now = Date.now();
-      if (now - (lastCommandAt.get(message.author.id) ?? 0) < FLOOD_MS) return;
-      lastCommandAt.set(message.author.id, now);
-      if (lastCommandAt.size > 5000) lastCommandAt.clear();
+    // Flood limit, missing permissions, and abuse tracking
+    const check = await guard.preflight(message, command, { isOwner });
+    if (!check.ok) {
+      if (check.reply) await message.reply(check.reply).catch(() => {});
+      return;
     }
 
     logging('info', 'Command used', `${command.name} by ${whoWhere(message)}`);
@@ -58,8 +58,7 @@ module.exports = (client, ctx) => {
       await command.run(message, arg, msgCtx);
       if (command.name !== '!!donate') maybeNudge(message);
     } catch (err) {
-      logging('error', `Command ${command.name} failed`, err);
-      message.reply('Something went wrong running that command.').catch(() => {});
+      message.reply(guard.friendlyError(err, command.name)).catch(() => {});
     }
   }
 
