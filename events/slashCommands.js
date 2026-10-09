@@ -16,7 +16,8 @@ module.exports = (client, ctx) => {
       const body = [];
       const seen = new Set();
 
-      for (const command of ctx.commands.values()) {
+    for (const command of ctx.commands.values()) {
+        if (command.hidden) continue;
         const json = toSlashCommandJSON(command);
         if (!json.name || seen.has(json.name)) continue;
         seen.add(json.name);
