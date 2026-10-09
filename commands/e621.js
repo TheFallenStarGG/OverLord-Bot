@@ -1,12 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
-const { isAllowed } = require('../lib/redditAllow');
-const { sendPosts } = require('../lib/media');
+const booru = require('../lib/booru');
 
-const BASE = 'https://e621.net/posts.json';
-const MAX = 50;           // max images per command
-const PER_MESSAGE = 10;   // Discord's limit of embeds per message
-const DEDUPE_MS = 10 * 60 * 1000;
-const MIN_GAP_MS = 700;   // e621's hard limit is 2 requests/second
+const BASE = 'https://e621.net';
 
 // Optional: set E621_USER and E621_KEY in your host's env variables.
 // e621 asks bots to identify themselves, and a key unlocks more of the site.
@@ -16,230 +11,105 @@ const UA = E621_USER
   ? `OverLorderBot/1.0 (by ${E621_USER} on e621)`
   : 'OverLorderBot/1.0 (Discord bot; github.com/TheFallenStarGG/OverLorder-Bot)';
 
-// Images go in an embed; videos are sent as a plain link so Discord makes a player
-const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp']);
-const VIDEO_EXTS = new Set(['webm', 'mp4', 'mov', 'm4v']);
-
-// Posts with these tags are NEVER shown, and searching for them is refused.
-// This is checked on the bot's side, so it doesn't use up any of e621's tag slots.
-const ALWAYS_BLOCKED = new Set([
-  'young', 'cub', 'loli', 'shota', 'toddlercon', 'toddler', 'child', 'infant', 'underage', 'minor',
-]);
-const ALWAYS_BLOCKED_PREFIXES = ['loli', 'shota', 'toddlercon'];
-
-// Add anything else you never want shown (example: 'gore', 'scat'). Easy to edit.
-const EXTRA_BLOCKED = new Set([]);
+function headers() {
+  const h = { 'User-Agent': UA, Accept: 'application/json' };
+  if (E621_USER && E621_KEY) {
+    h.Authorization = 'Basic ' + Buffer.from(`${E621_USER}:${E621_KEY}`).toString('base64');
+  }
+  return h;
+}
 
 const HIDDEN_ARTISTS = new Set([
   'unknown_artist', 'anonymous_artist', 'conditional_dnp', 'sound_warning', 'epilepsy_warning',
 ]);
-
 const RATINGS = { s: 'Safe', q: 'Questionable', e: 'Explicit' };
 
-// post id -> timestamp when we last sent it
-const recentlySent = new Map();
-
-function pruneDedupe() {
-  const now = Date.now();
-  for (const [id, at] of recentlySent) {
-    if (now - at > DEDUPE_MS) recentlySent.delete(id);
-  }
-}
-function wasSentRecently(id) {
-  pruneDedupe();
-  const at = recentlySent.get(id);
-  return Boolean(at && Date.now() - at < DEDUPE_MS);
-}
-function markSent(id) {
-  recentlySent.set(id, Date.now());
-}
-
-function canUse(ctx, userId) {
-  return Boolean(ctx.isOwner) || isAllowed(userId);
-}
-
-function isBlockedTag(tag) {
-  const t = String(tag).toLowerCase();
-  return (
-    ALWAYS_BLOCKED.has(t) ||
-    EXTRA_BLOCKED.has(t) ||
-    ALWAYS_BLOCKED_PREFIXES.some((p) => t.startsWith(p))
-  );
-}
-
-// Keeps requests under e621's 2-per-second limit
-let nextSlot = 0;
-async function throttle() {
-  const now = Date.now();
-  const wait = Math.max(0, nextSlot - now);
-  nextSlot = Math.max(now, nextSlot) + MIN_GAP_MS;
-  if (wait) await new Promise((r) => setTimeout(r, wait));
-}
-
-// !!e621 <tags...> [count]    (or count:N anywhere)
-function parseArgs(raw) {
-  const tokens = String(raw || '')
-    .toLowerCase()
-    .replace(/,/g, ' ')
-    .split(/\s+/)
-    .filter(Boolean);
-
-  let count = 5;
-  const tags = [];
-  for (const tok of tokens) {
-    const m = tok.match(/^count:(\d+)$/);
-    if (m) count = parseInt(m[1], 10);
-    else tags.push(tok);
-  }
-  // a plain number at the end is the count (only if there's at least one real tag before it)
-  if (tags.length > 1 && /^\d+$/.test(tags[tags.length - 1])) {
-    count = parseInt(tags.pop(), 10);
-  }
-
-  count = Math.min(MAX, Math.max(1, count || 5));
-  return { tags, count };
-}
-
-async function fetchPosts(tags, want) {
-  // Ask for extra: videos, duplicates and blocked posts get filtered out afterwards
-  const limit = Math.min(320, Math.max(want * 4, 20));
-  const params = new URLSearchParams({ tags: tags.join(' '), limit: String(limit) });
-
-  const headers = { 'User-Agent': UA, Accept: 'application/json' };
-  if (E621_USER && E621_KEY) {
-    headers.Authorization = 'Basic ' + Buffer.from(`${E621_USER}:${E621_KEY}`).toString('base64');
-  }
-
-  await throttle();
-  const res = await fetch(`${BASE}?${params}`, {
-    headers,
-    signal: AbortSignal.timeout(20_000),
-  });
-
-  let json = null;
-  try {
-    json = await res.json();
-  } catch {
-    /* handled below */
-  }
-
-  if (json && json.success === false) {
-    throw new Error(json.message || json.reason || 'e621 rejected that search.');
-  }
-  if (res.status === 403) throw new Error('e621 refused the request (the bot’s host may be blocked).');
-  if (res.status === 429 || res.status === 503) {
-    throw new Error('e621 is rate limiting the bot. Try again in a few seconds.');
-  }
-  if (!res.ok) throw new Error(`e621 returned HTTP ${res.status}.`);
-  if (!Array.isArray(json?.posts)) throw new Error('Unexpected response from e621.');
-
-  const seen = new Set();
-  const out = [];
-  for (const p of json.posts) {
-    if (!p || seen.has(p.id) || wasSentRecently(p.id)) continue;
-    if (p.flags?.deleted) continue;
-
-    const url = p.file?.url;
-    const ext = String(p.file?.ext || '').toLowerCase();
-    const isVideo = VIDEO_EXTS.has(ext);
-    if (!url || !(IMAGE_EXTS.has(ext) || isVideo)) continue; // no link, or a flash file
-    
-    const allTags = Object.values(p.tags || {}).flat();
-    if (allTags.some(isBlockedTag)) continue;
-
-    seen.add(p.id);
-    const artists = (p.tags?.artist || [])
-      .filter((a) => !HIDDEN_ARTISTS.has(a))
-      .map((a) => a.replace(/_/g, ' '));
-
-    out.push({
-      id: p.id,
-      url,
-      isVideo,
-      artists,
-      score: p.score?.total ?? 0,
-      favs: p.fav_count ?? 0,
-      rating: RATINGS[p.rating] || '?',
-    });
-    if (out.length >= want) break;
-  }
-  return out;
-}
-
-module.exports = {
+module.exports = booru.createTagBooru({
+  key: 'e621',
   name: '!!e621',
   aliases: ['!!e6'],
-  usage: '!!e621 <tags...> [count]',
-  description: 'Owner/allowlist only. Pull image posts from e621 using tag searches.',
-  access: 'free',
-  hidden: true,
+  label: 'e621',
+  usage: '!!e621 <tags...> [count] [gallery]',
+  description: 'Owner/allowlist only. Pull posts from e621 using tag searches.',
+  examples: ['!!e621 fox solo rating:e 10', '!!e621 wolf score:>200 order:score 5', '!!e621 canine -solo type:gif 8 gallery'],
+  tips:
+    '`-tag` excludes a tag, `~tag` means "any of", `rating:s/q/e` filters by rating. ' +
+    'Posts come back in random order unless you add your own `order:` tag.',
+  orderTag: 'order:random',
+  orderPrefix: 'order:',
+  maxLimit: 320,
 
-  async run(message, arg, ctx) {
-    // Not allowed → ignore completely (no reply)
-    if (!canUse(ctx, message.author.id)) return;
-
-    // Adult content tool → NSFW channel only
-    if (!message.channel?.nsfw) {
-      return message.reply('This command only works in an **NSFW** channel.');
-    }
-
-    const { tags, count } = parseArgs(ctx.rawArg || arg);
-    if (!tags.length) {
-      return message.reply(
-        'Usage: `!!e621 <tags...> [count]`\n' +
-          'Examples:\n' +
-          '`!!e621 fox solo rating:e 10`\n' +
-          '`!!e621 wolf score:>200 order:score 5`\n' +
-          '`!!e621 canine -solo type:gif 8`\n' +
-          'Tips: `-tag` excludes a tag, `~tag` means "any of", `rating:s/q/e` filters by rating. ' +
-          'Posts come back in random order unless you add your own `order:` tag.'
-      );
-    }
-
-    // Refuse searches for blocked tags (a leading "-" is fine, that excludes them)
-    const blockedAsked = tags.find((t) => !t.startsWith('-') && isBlockedTag(t.replace(/^[~+]/, '')));
-    if (blockedAsked) {
-      return message.reply('That search includes a tag that is blocked on this bot.');
-    }
-
-    // Random order by default (uses one of e621's tag slots)
-    if (!tags.some((t) => t.startsWith('order:'))) tags.push('order:random');
-
-    await message.channel.sendTyping().catch(() => {});
-
-    let posts;
-    try {
-      posts = await fetchPosts(tags, count);
-    } catch (err) {
-      return message.reply(`Could not fetch from e621: ${err.message}`);
-    }
-
-    const shownTags = tags.join(' ').replace(/`/g, '');
-
-    if (!posts.length) {
-      return message.reply(
-        `No new **image** posts found for \`${shownTags}\`. Check the tags, or they may all be videos or already sent in the last 10 minutes.`
-      );
-    }
-
-    await message.channel.send(
-      `**e621** · ${posts.length} post${posts.length === 1 ? '' : 's'} · \`${shownTags}\``
-    );
-
-    await sendPosts(message.channel, posts, {
-      embed: (p, i) =>
-        new EmbedBuilder()
-          .setColor(0x00549e)
-          .setTitle((p.artists.length ? p.artists.join(', ') : `Post #${p.id}`).slice(0, 256))
-          .setURL(`https://e621.net/posts/${p.id}`)
-          .setImage(p.url)
-          .setFooter({
-            text: `e621 #${p.id} · ${i + 1}/${posts.length} · ▲ ${p.score} · ♥ ${p.favs} · ${p.rating}`,
-          }),
-      videoText: (p, i) =>
-        `**e621 #${p.id}** · ${i + 1}/${posts.length} · ▲ ${p.score} · ♥ ${p.favs} · ${p.rating} · <https://e621.net/posts/${p.id}>\n${p.url}`,
-      onSent: (p) => markSent(p.id),
+  async fetch(tags, limit) {
+    const params = new URLSearchParams({ tags: tags.join(' '), limit: String(limit) });
+    const res = await booru.request(`${BASE}/posts.json?${params}`, {
+      label: 'e621',
+      headers: headers(),
+      gapMs: 700, // e621's hard limit is 2 requests/second
     });
-    
+
+    let json = null;
+    try {
+      json = await res.json();
+    } catch {
+      /* handled below */
+    }
+
+    if (json && json.success === false) throw new Error(json.message || json.reason || 'e621 rejected that search.');
+    if (res.status === 403) throw new Error('e621 refused the request (the bot’s host may be blocked).');
+    if (!res.ok) throw new Error(`e621 returned HTTP ${res.status}.`);
+    if (!Array.isArray(json?.posts)) throw new Error('Unexpected response from e621.');
+
+    const out = [];
+    for (const p of json.posts) {
+      if (!p || p.flags?.deleted) continue;
+      const url = p.file?.url;
+      const kind = booru.kindFromExt(p.file?.ext);
+      if (!url || !kind) continue; // no link, or a flash file
+
+      out.push({
+        id: p.id,
+        url,
+        isVideo: kind === 'video',
+        tags: Object.values(p.tags || {}).flat(),
+        artists: (p.tags?.artist || []).filter((a) => !HIDDEN_ARTISTS.has(a)).map((a) => a.replace(/_/g, ' ')),
+        score: p.score?.total ?? 0,
+        favs: p.fav_count ?? 0,
+        rating: RATINGS[p.rating] || '?',
+      });
+    }
+    return out;
   },
-};
+
+  // For "did you mean": returns { exact, names }
+  async autocomplete(tag) {
+    const lookup = async (term) => {
+      const params = new URLSearchParams({ 'search[name_matches]': term, expiry: '7' });
+      const res = await booru.request(`${BASE}/tags/autocomplete.json?${params}`, {
+        label: 'e621',
+        headers: headers(),
+        gapMs: 700,
+        timeout: 8000,
+      });
+      if (!res.ok) return [];
+      const json = await res.json().catch(() => null);
+      return Array.isArray(json) ? json : [];
+    };
+
+    let rows = await lookup(tag);
+    const exact = rows.some((r) => r.name === tag || r.antecedent_name === tag);
+    // Nothing starts with what was typed (typo?) → try just the first few letters
+    if (!rows.length && tag.length > 4) rows = await lookup(tag.slice(0, 4));
+    return { exact, names: rows.map((r) => r.name).filter(Boolean) };
+  },
+
+  embed: (p, i, n) =>
+    new EmbedBuilder()
+      .setColor(0x00549e)
+      .setTitle((p.artists.length ? p.artists.join(', ') : `Post #${p.id}`).slice(0, 256))
+      .setURL(`https://e621.net/posts/${p.id}`)
+      .setImage(p.url)
+      .setFooter({ text: `e621 #${p.id} · ${i + 1}/${n} · ▲ ${p.score} · ♥ ${p.favs} · ${p.rating}` }),
+
+  videoText: (p, i, n) =>
+    `**e621 #${p.id}** · ${i + 1}/${n} · ▲ ${p.score} · ♥ ${p.favs} · ${p.rating} · <https://e621.net/posts/${p.id}>\n${p.url}`,
+});
