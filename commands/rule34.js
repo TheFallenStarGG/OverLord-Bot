@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const { isAllowed } = require('../lib/redditAllow');
+const { sendPosts } = require('../lib/media');
 
 const BASE = 'https://api.rule34.xxx/index.php';
 const MAX = 50;           // max images per command
@@ -12,8 +13,9 @@ const R34_API_KEY = process.env.R34_API_KEY;
 const R34_USER_ID = process.env.R34_USER_ID;
 const UA = 'OverLorderBot/1.0 (Discord bot; github.com/TheFallenStarGG/OverLorder-Bot)';
 
-// Only these file types can be shown inside a Discord embed (no videos)
+// Images go in an embed; videos are sent as a plain link so Discord makes a player
 const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp']);
+const VIDEO_EXTS = new Set(['mp4', 'webm', 'mov', 'm4v']);
 
 // Posts with these tags are NEVER shown, and searching for them is refused.
 // Checked on the bot's side, so it doesn't change what you search for.
@@ -150,8 +152,10 @@ async function fetchPosts(tags, want) {
     let url = p.file_url;
     if (!url) continue;
     if (url.startsWith('//')) url = `https:${url}`;
-    if (!IMAGE_EXTS.has(extOf(url))) continue; // video or other non-image file
-
+    const ext = extOf(url);
+    const isVideo = VIDEO_EXTS.has(ext);
+    if (!IMAGE_EXTS.has(ext) && !isVideo) continue; // not an image or video
+    
     const postTags = String(p.tags || '').split(/\s+/).filter(Boolean);
     if (postTags.some(isBlockedTag)) continue;
 
@@ -160,6 +164,7 @@ async function fetchPosts(tags, want) {
     out.push({
       id: p.id,
       url,
+      isVideo,
       score: p.score ?? 0,
       rating: rating.charAt(0).toUpperCase() + rating.slice(1),
     });
@@ -231,23 +236,23 @@ module.exports = {
     }
 
     await message.channel.send(
-      `**rule34** · ${posts.length} image${posts.length === 1 ? '' : 's'} · \`${shownTags}\``
+      `**rule34** · ${posts.length} post${posts.length === 1 ? '' : 's'} · \`${shownTags}\``
     );
 
-    for (let i = 0; i < posts.length; i += PER_MESSAGE) {
-      const batch = posts.slice(i, i + PER_MESSAGE);
-      const embeds = batch.map((p, j) =>
+    await sendPosts(message.channel, posts, {
+      embed: (p, i) =>
         new EmbedBuilder()
           .setColor(0xaae5a4)
           .setTitle(`Post #${p.id}`)
           .setURL(`https://rule34.xxx/index.php?page=post&s=view&id=${p.id}`)
           .setImage(p.url)
           .setFooter({
-            text: `rule34 #${p.id} · ${i + j + 1}/${posts.length} · ▲ ${p.score} · ${p.rating}`,
-          })
-      );
-      await message.channel.send({ embeds });
-      for (const p of batch) markSent(p.id);
-    }
+            text: `rule34 #${p.id} · ${i + 1}/${posts.length} · ▲ ${p.score} · ${p.rating}`,
+          }),
+      videoText: (p, i) =>
+        `**rule34 #${p.id}** · ${i + 1}/${posts.length} · ▲ ${p.score} · ${p.rating} · <https://rule34.xxx/index.php?page=post&s=view&id=${p.id}>\n${p.url}`,
+      onSent: (p) => markSent(p.id),
+    });
+    
   },
 };
