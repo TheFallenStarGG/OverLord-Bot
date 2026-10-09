@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const { isAllowed } = require('../lib/redditAllow');
+const { kindOf, videoLink, sendPosts } = require('../lib/media');
 
 const API = 'https://meme-api.com/gimme';
 const MAX = 50;          // meme-api's hard limit per request
@@ -41,12 +42,18 @@ function isImageUrl(url) {
   );
 }
 
-// Pick a usable image URL from one meme-api post (or null if it's not an image)
-function pickImage(m) {
-  if (m?.url && isImageUrl(m.url)) return String(m.url);
+// Pick a usable image or video from one meme-api post (or null if there's nothing to show)
+function pickMedia(m) {
+  if (m?.url) {
+    if (isImageUrl(m.url)) return { url: String(m.url), isVideo: false };
+    if (kindOf(m.url) === 'video') return { url: videoLink(m.url), isVideo: true };
+  }
   // fall back to the highest-quality preview (last in the array)
   if (Array.isArray(m?.preview) && m.preview.length) {
-    return String(m.preview[m.preview.length - 1]).replace(/&amp;/g, '&');
+    return {
+      url: String(m.preview[m.preview.length - 1]).replace(/&amp;/g, '&'),
+      isVideo: false,
+    };
   }
   return null;
 }
@@ -95,12 +102,13 @@ async function fetchImages(sub, want) {
   const seen = new Set();
   const images = [];
   for (const m of memes) {
-    const img = pickImage(m);
-    if (!img || seen.has(img) || wasSentRecently(img)) continue;
-    seen.add(img);
+    const media = pickMedia(m);
+    if (!media || seen.has(media.url) || wasSentRecently(media.url)) continue;
+    seen.add(media.url);
 
     images.push({
-      url: img,
+      url: media.url,
+      isVideo: media.isVideo,
       title: String(m.title || 'post').slice(0, 200),
       permalink: m.postLink || null,
       author: m.author || 'unknown',
@@ -153,12 +161,11 @@ module.exports = {
     }
 
     await message.channel.send(
-      `**r/${sub}** · ${images.length} image${images.length === 1 ? '' : 's'}`
+      `**r/${sub}** · ${images.length} post${images.length === 1 ? '' : 's'}`
     );
 
-    for (let i = 0; i < images.length; i += PER_MESSAGE) {
-      const batch = images.slice(i, i + PER_MESSAGE);
-      const embeds = batch.map((img, j) =>
+    await sendPosts(message.channel, images, {
+      embed: (img, i) =>
         new EmbedBuilder()
           .setColor(0xff4500)
           .setTitle(img.title.slice(0, 256))
@@ -166,12 +173,14 @@ module.exports = {
           .setImage(img.url)
           .setFooter({
             text:
-              `r/${img.sub} · ${i + j + 1}/${images.length} · u/${img.author} · ▲ ${formatUps(img.ups)}` +
+              `r/${img.sub} · ${i + 1}/${images.length} · u/${img.author} · ▲ ${formatUps(img.ups)}` +
               `${img.nsfw ? ' · NSFW' : ''}${img.spoiler ? ' · SPOILER' : ''}`,
-          })
-      );
-      await message.channel.send({ embeds });
-      for (const img of batch) markSent(img.url);
-    }
+          }),
+      videoText: (img, i) =>
+        `**r/${img.sub}** · ${i + 1}/${images.length} · u/${img.author} · ▲ ${formatUps(img.ups)}` +
+        `${img.permalink ? ` · <${img.permalink}>` : ''}\n${img.url}`,
+      onSent: (img) => markSent(img.url),
+    });
+    
   },
 };
