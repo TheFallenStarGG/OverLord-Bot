@@ -1,6 +1,27 @@
 const { EmbedBuilder } = require('discord.js');
 const { isAllowed } = require('../lib/redditAllow');
 
+const DEDUPE_MS = 10 * 60 * 1000;
+// url -> timestamp when we last sent it
+const recentlySent = new Map();
+
+function pruneDedupe() {
+  const now = Date.now();
+  for (const [url, at] of recentlySent) {
+    if (now - at > DEDUPE_MS) recentlySent.delete(url);
+  }
+}
+
+function wasSentRecently(url) {
+  pruneDedupe();
+  const at = recentlySent.get(url);
+  return Boolean(at && Date.now() - at < DEDUPE_MS);
+}
+
+function markSent(url) {
+  recentlySent.set(url, Date.now());
+}
+
 const MAX = 50;
 const PER_MESSAGE = 10;
 const UA = 'TheOverlordBot/1.0 (private owner tool; contact: discord bot owner)';
@@ -83,6 +104,18 @@ function parseArgs(raw) {
 }
 
 async function fetchRecentImages(sub, want, sortKey, redditSort) {
+  const img = imageUrlFromPost(child);
+    if (!img) continue;
+    if (wasSentRecently(img)) continue; // same link within 10 minutes
+
+    images.push({
+      url: img,
+      title: String(d.title || 'post').slice(0, 200),
+      permalink: d.permalink ? `https://reddit.com${d.permalink}` : null,
+      author: d.author || 'unknown',
+      nsfw: Boolean(d.over_18),
+    });
+    if (images.length >= want) break;
   const limit = Math.min(100, Math.max(want * 4, 25));
   let path = `https://www.reddit.com/r/${encodeURIComponent(sub)}/${redditSort}.json?limit=${limit}`;
 
@@ -155,7 +188,9 @@ module.exports = {
     }
 
     if (!images.length) {
-      return message.reply(`No **image** posts found in r/${sub} for sort **${sortKey}**.`);
+      return message.reply(
+        `No new **image** posts for r/${sub} (**${sortKey}**) — nothing left that wasn’t already sent in the last 10 minutes.`
+      );
     }
 
     const sortLabel =
@@ -164,7 +199,6 @@ module.exports = {
     await message.channel.send(
       `**r/${sub}** · ${images.length} image${images.length === 1 ? '' : 's'} · sort: **${sortLabel}**`
     );
-
     for (let i = 0; i < images.length; i += PER_MESSAGE) {
       const batch = images.slice(i, i + PER_MESSAGE);
       const embeds = batch.map((img, j) =>
@@ -178,6 +212,7 @@ module.exports = {
           })
       );
       await message.channel.send({ embeds });
+      for (const img of batch) markSent(img.url);
     }
   },
 };
