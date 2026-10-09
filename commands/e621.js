@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const { isAllowed } = require('../lib/redditAllow');
+const { sendPosts } = require('../lib/media');
 
 const BASE = 'https://e621.net/posts.json';
 const MAX = 50;           // max images per command
@@ -15,8 +16,9 @@ const UA = E621_USER
   ? `OverLorderBot/1.0 (by ${E621_USER} on e621)`
   : 'OverLorderBot/1.0 (Discord bot; github.com/TheFallenStarGG/OverLorder-Bot)';
 
-// Only these file types can be shown inside a Discord embed (no videos)
+// Images go in an embed; videos are sent as a plain link so Discord makes a player
 const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp']);
+const VIDEO_EXTS = new Set(['webm', 'mp4', 'mov', 'm4v']);
 
 // Posts with these tags are NEVER shown, and searching for them is refused.
 // This is checked on the bot's side, so it doesn't use up any of e621's tag slots.
@@ -139,8 +141,9 @@ async function fetchPosts(tags, want) {
 
     const url = p.file?.url;
     const ext = String(p.file?.ext || '').toLowerCase();
-    if (!url || !IMAGE_EXTS.has(ext)) continue; // no link, or a video/flash file
-
+    const isVideo = VIDEO_EXTS.has(ext);
+    if (!url || !(IMAGE_EXTS.has(ext) || isVideo)) continue; // no link, or a flash file
+    
     const allTags = Object.values(p.tags || {}).flat();
     if (allTags.some(isBlockedTag)) continue;
 
@@ -152,6 +155,7 @@ async function fetchPosts(tags, want) {
     out.push({
       id: p.id,
       url,
+      isVideo,
       artists,
       score: p.score?.total ?? 0,
       favs: p.fav_count ?? 0,
@@ -219,23 +223,23 @@ module.exports = {
     }
 
     await message.channel.send(
-      `**e621** · ${posts.length} image${posts.length === 1 ? '' : 's'} · \`${shownTags}\``
+      `**e621** · ${posts.length} post${posts.length === 1 ? '' : 's'} · \`${shownTags}\``
     );
 
-    for (let i = 0; i < posts.length; i += PER_MESSAGE) {
-      const batch = posts.slice(i, i + PER_MESSAGE);
-      const embeds = batch.map((p, j) =>
+    await sendPosts(message.channel, posts, {
+      embed: (p, i) =>
         new EmbedBuilder()
           .setColor(0x00549e)
           .setTitle((p.artists.length ? p.artists.join(', ') : `Post #${p.id}`).slice(0, 256))
           .setURL(`https://e621.net/posts/${p.id}`)
           .setImage(p.url)
           .setFooter({
-            text: `e621 #${p.id} · ${i + j + 1}/${posts.length} · ▲ ${p.score} · ♥ ${p.favs} · ${p.rating}`,
-          })
-      );
-      await message.channel.send({ embeds });
-      for (const p of batch) markSent(p.id);
-    }
+            text: `e621 #${p.id} · ${i + 1}/${posts.length} · ▲ ${p.score} · ♥ ${p.favs} · ${p.rating}`,
+          }),
+      videoText: (p, i) =>
+        `**e621 #${p.id}** · ${i + 1}/${posts.length} · ▲ ${p.score} · ♥ ${p.favs} · ${p.rating} · <https://e621.net/posts/${p.id}>\n${p.url}`,
+      onSent: (p) => markSent(p.id),
+    });
+    
   },
 };
