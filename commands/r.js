@@ -104,22 +104,10 @@ function parseArgs(raw) {
 }
 
 async function fetchRecentImages(sub, want, sortKey, redditSort) {
-  const img = imageUrlFromPost(child);
-    if (!img) continue;
-    if (wasSentRecently(img)) continue; // same link within 10 minutes
-
-    images.push({
-      url: img,
-      title: String(d.title || 'post').slice(0, 200),
-      permalink: d.permalink ? `https://reddit.com${d.permalink}` : null,
-      author: d.author || 'unknown',
-      nsfw: Boolean(d.over_18),
-    });
-    if (images.length >= want) break;
   const limit = Math.min(100, Math.max(want * 4, 25));
   let path = `https://www.reddit.com/r/${encodeURIComponent(sub)}/${redditSort}.json?limit=${limit}`;
 
-  // "popular" / top → all-time; plain "top" → day (Reddit default is often day)
+  // "popular" → all-time top; plain "top" → today
   if (sortKey === 'popular') {
     path += '&t=all';
   } else if (sortKey === 'top') {
@@ -144,6 +132,8 @@ async function fetchRecentImages(sub, want, sortKey, redditSort) {
     const d = child.data;
     const img = imageUrlFromPost(child);
     if (!img) continue;
+    if (wasSentRecently(img)) continue;
+
     images.push({
       url: img,
       title: String(d.title || 'post').slice(0, 200),
