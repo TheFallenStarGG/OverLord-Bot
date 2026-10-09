@@ -51,7 +51,6 @@ async function fetchRecentImages(sub, want) {
   const images = [];
   for (const child of children) {
     const d = child.data;
-    if (d?.over_18) continue; // skip NSFW for safety
     const img = imageUrlFromPost(child);
     if (!img) continue;
     images.push({
@@ -93,7 +92,7 @@ module.exports = {
     }
 
     if (!images.length) {
-      return message.reply(`No recent **image** posts found in r/${sub} (NSFW is skipped).`);
+      return message.reply(`No recent **image** posts found in r/${sub} .`);
     }
 
     // Discord: max 10 embeds per message → split into batches
