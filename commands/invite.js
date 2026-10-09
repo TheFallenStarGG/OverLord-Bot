@@ -17,6 +17,7 @@ module.exports = {
         PermissionFlagsBits.ReadMessageHistory,
         PermissionFlagsBits.AddReactions,
         PermissionFlagsBits.UseExternalEmojis,
+        PermissionFlagsBits.ManageRoles,
       ],
     });
     const row = new ActionRowBuilder().addComponents(
