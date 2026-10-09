@@ -1,7 +1,11 @@
 const { EmbedBuilder } = require('discord.js');
 const { isAllowed } = require('../lib/redditAllow');
 
+const API = 'https://meme-api.com/gimme';
+const MAX = 50;          // meme-api's hard limit per request
+const PER_MESSAGE = 10;  // Discord's limit of embeds per message
 const DEDUPE_MS = 10 * 60 * 1000;
+
 // url -> timestamp when we last sent it
 const recentlySent = new Map();
 
@@ -22,20 +26,6 @@ function markSent(url) {
   recentlySent.set(url, Date.now());
 }
 
-const MAX = 50;
-const PER_MESSAGE = 10;
-const UA = 'TheOverlordBot/1.0 (private owner tool; contact: discord bot owner)';
-
-// !!r <sub> [count] [sort]
-// sort: new | hot | top | rising | popular  (popular = top of all time)
-const SORTS = {
-  new: 'new',
-  hot: 'hot',
-  rising: 'rising',
-  top: 'top',
-  popular: 'top', // most popular = top (all time)
-};
-
 function canUse(ctx, userId) {
   return Boolean(ctx.isOwner) || isAllowed(userId);
 }
@@ -51,95 +41,73 @@ function isImageUrl(url) {
   );
 }
 
-function imageUrlFromPost(post) {
-  const d = post?.data;
-  if (!d || d.stickied) return null;
-
-  // Pure image link
-  const url = String(d.url || '');
-  if (isImageUrl(url)) return url.split('?')[0];
-
-  // Hosted image with preview
-  if (d.post_hint === 'image' || d.is_reddit_media_domain) {
-    const preview = d.preview?.images?.[0]?.source?.url;
-    if (preview) return preview.replace(/&amp;/g, '&');
+// Pick a usable image URL from one meme-api post (or null if it's not an image)
+function pickImage(m) {
+  if (m?.url && isImageUrl(m.url)) return String(m.url);
+  // fall back to the highest-quality preview (last in the array)
+  if (Array.isArray(m?.preview) && m.preview.length) {
+    return String(m.preview[m.preview.length - 1]).replace(/&amp;/g, '&');
   }
-
-  // Gallery — first still image only
-  if (d.is_gallery && d.media_metadata) {
-    for (const meta of Object.values(d.media_metadata)) {
-      if (meta?.e && meta.e !== 'Image') continue;
-      const u = meta?.s?.u || meta?.s?.gif;
-      if (u) return String(u).replace(/&amp;/g, '&');
-    }
-  }
-
-  // No videos (v.redd.it), text posts, link posts without image
   return null;
 }
 
-function parseArgs(raw) {
-  const parts = String(raw || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
+function formatUps(n) {
+  n = Number(n) || 0;
+  return n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(n);
+}
 
-  const sub = (parts[0] || '').replace(/^r\//i, '').trim();
+function parseArgs(raw) {
+  const parts = String(raw || '').trim().split(/\s+/).filter(Boolean);
+  const sub = (parts[0] || '').replace(/^\/?r\//i, '').trim();
   let count = 5;
-  let sortKey = 'new';
 
   for (const p of parts.slice(1)) {
-    const low = p.toLowerCase();
-    if (SORTS[low]) {
-      sortKey = low;
-      continue;
-    }
-    if (/^\d+$/.test(p)) {
-      count = parseInt(p, 10);
-    }
+    if (/^\d+$/.test(p)) count = parseInt(p, 10);
   }
 
   count = Math.min(MAX, Math.max(1, count || 5));
-  return { sub, count, sortKey, redditSort: SORTS[sortKey] };
+  return { sub, count };
 }
 
-async function fetchRecentImages(sub, want, sortKey, redditSort) {
-  const limit = Math.min(100, Math.max(want * 4, 25));
-  let path = `https://www.reddit.com/r/${encodeURIComponent(sub)}/${redditSort}.json?limit=${limit}`;
+async function fetchImages(sub, want) {
+  // Ask for extra, because the API returns random posts and we drop
+  // duplicates / non-images / recently sent ones afterwards.
+  const ask = Math.min(MAX, Math.max(want * 2, want + 5));
+  const url = `${API}/${encodeURIComponent(sub)}/${ask}`;
 
-  // "popular" → all-time top; plain "top" → today
-  if (sortKey === 'popular') {
-    path += '&t=all';
-  } else if (sortKey === 'top') {
-    path += '&t=day';
+  const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+
+  let json = null;
+  try {
+    json = await res.json();
+  } catch {
+    /* handled below */
   }
 
-  const res = await fetch(path, {
-    headers: { 'User-Agent': UA },
-    signal: AbortSignal.timeout(15_000),
-  });
-
+  // meme-api reports problems as { code, message }
+  if (json && json.code && json.message) throw new Error(json.message);
   if (res.status === 404) throw new Error(`Subreddit r/${sub} not found.`);
-  if (res.status === 403) throw new Error(`Subreddit r/${sub} is private or banned.`);
-  if (!res.ok) throw new Error(`Reddit returned HTTP ${res.status}.`);
+  if (!res.ok) throw new Error(`Meme API returned HTTP ${res.status}.`);
 
-  const json = await res.json();
-  const children = json?.data?.children;
-  if (!Array.isArray(children)) throw new Error('Unexpected Reddit response.');
+  const memes = Array.isArray(json?.memes) ? json.memes : json?.url ? [json] : null;
+  if (!memes) throw new Error('Unexpected response from the Meme API.');
 
+  const seen = new Set();
   const images = [];
-  for (const child of children) {
-    const d = child.data;
-    const img = imageUrlFromPost(child);
-    if (!img) continue;
-    if (wasSentRecently(img)) continue;
+  for (const m of memes) {
+    const img = pickImage(m);
+    if (!img || seen.has(img) || wasSentRecently(img)) continue;
+    seen.add(img);
 
     images.push({
       url: img,
-      title: String(d.title || 'post').slice(0, 200),
-      permalink: d.permalink ? `https://reddit.com${d.permalink}` : null,
-      author: d.author || 'unknown',
-      nsfw: Boolean(d.over_18),
+      title: String(m.title || 'post').slice(0, 200),
+      permalink: m.postLink || null,
+      author: m.author || 'unknown',
+      sub: m.subreddit || sub,
+      ups: m.ups,
+      nsfw: Boolean(m.nsfw),
+      spoiler: Boolean(m.spoiler),
     });
     if (images.length >= want) break;
   }
@@ -148,8 +116,8 @@ async function fetchRecentImages(sub, want, sortKey, redditSort) {
 
 module.exports = {
   name: '!!r',
-  usage: '!!r <subreddit> [count] [new|hot|top|rising|popular]',
-  description: 'Owner/allowlist only. Pull image posts from a subreddit.',
+  usage: '!!r <subreddit> [count]',
+  description: 'Owner/allowlist only. Pull random image posts from any subreddit.',
   access: 'free',
   hidden: true,
 
@@ -162,33 +130,32 @@ module.exports = {
       return message.reply('This command only works in an **NSFW** channel.');
     }
 
-    const { sub, count, sortKey, redditSort } = parseArgs(ctx.rawArg || arg);
+    const { sub, count } = parseArgs(ctx.rawArg || arg);
     if (!sub || !/^[A-Za-z0-9_]+$/.test(sub)) {
       return message.reply(
-        'Usage: `!!r <subreddit> [count] [new|hot|top|rising|popular]`\n' +
-          'Example: `!!r take1leave1 20 popular`'
+        'Usage: `!!r <subreddit> [count]`\nExample: `!!r take1leave1 20`'
       );
     }
 
+    await message.channel.sendTyping().catch(() => {});
+
     let images;
     try {
-      images = await fetchRecentImages(sub, count, sortKey, redditSort);
+      images = await fetchImages(sub, count);
     } catch (err) {
       return message.reply(`Could not fetch r/${sub}: ${err.message}`);
     }
 
     if (!images.length) {
       return message.reply(
-        `No new **image** posts for r/${sub} (**${sortKey}**) — nothing left that wasn’t already sent in the last 10 minutes.`
+        `No new **image** posts found for r/${sub} — try again in a moment (images sent in the last 10 minutes are skipped).`
       );
     }
 
-    const sortLabel =
-      sortKey === 'popular' ? 'popular (top all-time)' : sortKey === 'top' ? 'top (today)' : sortKey;
-
     await message.channel.send(
-      `**r/${sub}** · ${images.length} image${images.length === 1 ? '' : 's'} · sort: **${sortLabel}**`
+      `**r/${sub}** · ${images.length} image${images.length === 1 ? '' : 's'}`
     );
+
     for (let i = 0; i < images.length; i += PER_MESSAGE) {
       const batch = images.slice(i, i + PER_MESSAGE);
       const embeds = batch.map((img, j) =>
@@ -198,7 +165,9 @@ module.exports = {
           .setURL(img.permalink || img.url)
           .setImage(img.url)
           .setFooter({
-            text: `r/${sub} · ${i + j + 1}/${images.length} · u/${img.author}${img.nsfw ? ' · NSFW' : ''}`,
+            text:
+              `r/${img.sub} · ${i + j + 1}/${images.length} · u/${img.author} · ▲ ${formatUps(img.ups)}` +
+              `${img.nsfw ? ' · NSFW' : ''}${img.spoiler ? ' · SPOILER' : ''}`,
           })
       );
       await message.channel.send({ embeds });
