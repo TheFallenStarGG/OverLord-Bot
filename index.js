@@ -14,6 +14,7 @@ const client = new Client({
   partials: [Partials.Message, Partials.Channel, Partials.Reaction, Partials.User],
   allowedMentions: { parse: [], repliedUser: false },
 });
+client.setMaxListeners(50);
 
 // Every event runs "inside" the server it came from, so per-server data just works everywhere
 const guildIdOf = (arg) => {
