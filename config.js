@@ -24,7 +24,7 @@ module.exports = {
   BLOCKED_MODELS: ['content-safety', 'guard'],
 
   // Files that are kept separately for every server (see lib/storage.js)
-  SCOPED_FILES: ['modifiers', 'world', 'economy', 'lottery', 'ranked', 'stocks', 'weather', 'muscle', 'companies', 'realm', 'tournament'],
+  SCOPED_FILES: ['modifiers', 'world', 'economy', 'lottery', 'ranked', 'stocks', 'weather', 'muscle', 'companies', 'realm', 'tournament', 'seasons'],
   
   // Saved data files (kept in the same folder as index.js)
   FILES: {
@@ -45,5 +45,8 @@ module.exports = {
     blacklist: path.join(__dirname, 'blacklist.json'),
     guildmeta: path.join(__dirname, 'guildmeta.json'),
     digest: path.join(__dirname, 'digest.json'),
+    seasons: path.join(__dirname, 'seasons.json'),
+    war: path.join(__dirname, 'war.json'),
+    inbox: path.join(__dirname, 'inbox.json'),
   },
 };
