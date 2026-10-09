@@ -1,35 +1,11 @@
 const { EmbedBuilder } = require('discord.js');
-const { isAllowed } = require('../lib/redditAllow');
-const { kindOf, videoLink, sendPosts } = require('../lib/media');
+const { kindOf, videoLink } = require('../lib/media');
+const booru = require('../lib/booru');
 
 const API = 'https://meme-api.com/gimme';
-const MAX = 50;          // meme-api's hard limit per request
-const PER_MESSAGE = 10;  // Discord's limit of embeds per message
-const DEDUPE_MS = 10 * 60 * 1000;
+const MAX = 50; // meme-api's hard limit per request
 
-// url -> timestamp when we last sent it
-const recentlySent = new Map();
-
-function pruneDedupe() {
-  const now = Date.now();
-  for (const [url, at] of recentlySent) {
-    if (now - at > DEDUPE_MS) recentlySent.delete(url);
-  }
-}
-
-function wasSentRecently(url) {
-  pruneDedupe();
-  const at = recentlySent.get(url);
-  return Boolean(at && Date.now() - at < DEDUPE_MS);
-}
-
-function markSent(url) {
-  recentlySent.set(url, Date.now());
-}
-
-function canUse(ctx, userId) {
-  return Boolean(ctx.isOwner) || isAllowed(userId);
-}
+const SAVED = { source: 'r', cmd: '!!r', noun: 'subreddits', what: 'list', normalize: booru.normalizeSubs };
 
 function isImageUrl(url) {
   if (!url) return false;
@@ -50,10 +26,7 @@ function pickMedia(m) {
   }
   // fall back to the highest-quality preview (last in the array)
   if (Array.isArray(m?.preview) && m.preview.length) {
-    return {
-      url: String(m.preview[m.preview.length - 1]).replace(/&amp;/g, '&'),
-      isVideo: false,
-    };
+    return { url: String(m.preview[m.preview.length - 1]).replace(/&amp;/g, '&'), isVideo: false };
   }
   return null;
 }
@@ -63,26 +36,11 @@ function formatUps(n) {
   return n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(n);
 }
 
-function parseArgs(raw) {
-  const parts = String(raw || '').trim().split(/\s+/).filter(Boolean);
-  const sub = (parts[0] || '').replace(/^\/?r\//i, '').trim();
-  let count = 5;
-
-  for (const p of parts.slice(1)) {
-    if (/^\d+$/.test(p)) count = parseInt(p, 10);
-  }
-
-  count = Math.min(MAX, Math.max(1, count || 5));
-  return { sub, count };
-}
-
 async function fetchImages(sub, want) {
   // Ask for extra, because the API returns random posts and we drop
-  // duplicates / non-images / recently sent ones afterwards.
+  // duplicates / non-images / blocked / recently sent ones afterwards.
   const ask = Math.min(MAX, Math.max(want * 2, want + 5));
-  const url = `${API}/${encodeURIComponent(sub)}/${ask}`;
-
-  const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+  const res = await booru.request(`${API}/${encodeURIComponent(sub)}/${ask}`, { label: 'The Meme API' });
 
   let json = null;
   try {
@@ -102,8 +60,11 @@ async function fetchImages(sub, want) {
   const seen = new Set();
   const images = [];
   for (const m of memes) {
+    // Safety: skip posts whose title or subreddit hits the shared blocklist
+    if (booru.isBlockedText(m.title) || booru.isBlockedSubreddit(m.subreddit || sub)) continue;
+
     const media = pickMedia(m);
-    if (!media || seen.has(media.url) || wasSentRecently(media.url)) continue;
+    if (!media || seen.has(media.url) || booru.wasSent(`r:${media.url}`)) continue;
     seen.add(media.url);
 
     images.push({
@@ -124,32 +85,56 @@ async function fetchImages(sub, want) {
 
 module.exports = {
   name: '!!r',
-  usage: '!!r <subreddit> [count]',
+  usage: '!!r <subreddit> [count] [gallery]',
   description: 'Owner/allowlist only. Pull random image posts from any subreddit.',
   access: 'free',
   hidden: true,
 
   async run(message, arg, ctx) {
     // Not allowed → ignore completely (no reply)
-    if (!canUse(ctx, message.author.id)) return;
+    if (!booru.canUse(ctx, message.author.id)) return;
 
     // Adult content tool → NSFW channel only
     if (!message.channel?.nsfw) {
       return message.reply('This command only works in an **NSFW** channel.');
     }
 
-    const { sub, count } = parseArgs(ctx.rawArg || arg);
-    if (!sub || !/^[A-Za-z0-9_]+$/.test(sub)) {
+    const { tokens, gallery } = booru.splitArgs(ctx.rawArg || arg);
+
+    // save / saved / unsave
+    if (await booru.handleSaved(message, tokens, SAVED)) return;
+
+    // Swap @name for the saved subreddits
+    const expanded = booru.expandSaved(message.author.id, 'r', tokens);
+    if (expanded.missing.length) {
+      return message.reply(`You don't have a saved list called \`${expanded.missing[0]}\`. See yours with \`!!r saved\`.`);
+    }
+
+    const { rest, count: asked } = booru.takeCount(expanded.tokens, { anywhere: true });
+    const subs = [...new Set(rest.map((s) => s.replace(/^\/?r\//i, '')).filter(Boolean))];
+
+    if (!subs.length || subs.some((s) => !/^[A-Za-z0-9_]+$/.test(s))) {
       return message.reply(
-        'Usage: `!!r <subreddit> [count]`\nExample: `!!r take1leave1 20`'
+        'Usage: `!!r <subreddit> [count] [gallery]`\n' +
+          'Example: `!!r take1leave1 20` · add `gallery` to flip through one at a time\n' +
+          'Give several subreddits (or use a saved list) and it picks one at random each time.\n' +
+          'Saved lists (just yours): `!!r save <name> <subs...>` · `!!r @name` · `!!r saved` · `!!r unsave <name>`'
       );
     }
+
+    // Safety: refuse blocked subreddit names
+    if (subs.some(booru.isBlockedSubreddit)) {
+      return message.reply('That includes a subreddit that is blocked on this bot.');
+    }
+
+    const sub = subs[Math.floor(Math.random() * subs.length)];
+    const count = booru.clampCount(asked, gallery ? 10 : 5);
 
     await message.channel.sendTyping().catch(() => {});
 
     let images;
     try {
-      images = await fetchImages(sub, count);
+      images = await booru.withRetry(() => fetchImages(sub, count));
     } catch (err) {
       return message.reply(`Could not fetch r/${sub}: ${err.message}`);
     }
@@ -160,12 +145,9 @@ module.exports = {
       );
     }
 
-    await message.channel.send(
-      `**r/${sub}** · ${images.length} post${images.length === 1 ? '' : 's'}`
-    );
-
-    await sendPosts(message.channel, images, {
-      embed: (img, i) =>
+    await booru.present(message, images, {
+      header: `**r/${sub}** · ${images.length} post${images.length === 1 ? '' : 's'}${gallery ? ' · gallery' : ''}`,
+      embed: (img, i, n) =>
         new EmbedBuilder()
           .setColor(0xff4500)
           .setTitle(img.title.slice(0, 256))
@@ -173,14 +155,14 @@ module.exports = {
           .setImage(img.url)
           .setFooter({
             text:
-              `r/${img.sub} · ${i + 1}/${images.length} · u/${img.author} · ▲ ${formatUps(img.ups)}` +
+              `r/${img.sub} · ${i + 1}/${n} · u/${img.author} · ▲ ${formatUps(img.ups)}` +
               `${img.nsfw ? ' · NSFW' : ''}${img.spoiler ? ' · SPOILER' : ''}`,
           }),
-      videoText: (img, i) =>
-        `**r/${img.sub}** · ${i + 1}/${images.length} · u/${img.author} · ▲ ${formatUps(img.ups)}` +
+      videoText: (img, i, n) =>
+        `**r/${img.sub}** · ${i + 1}/${n} · u/${img.author} · ▲ ${formatUps(img.ups)}` +
         `${img.permalink ? ` · <${img.permalink}>` : ''}\n${img.url}`,
-      onSent: (img) => markSent(img.url),
+      onSent: (img) => booru.markSent(`r:${img.url}`),
+      gallery,
     });
-    
   },
 };
