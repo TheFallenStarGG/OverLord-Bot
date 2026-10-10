@@ -17,7 +17,7 @@ function overview() {
       { name: '⏱️ Next price update', value: `<t:${unix(nextTickAt())}:R>`, inline: true },
       { name: '💡 Tips', value: '`!!stocks <symbol>` for details\n`!!stocks news` for headlines', inline: true }
     )
-    .setFooter({ text: `% change is over 24 hours, charts show 6 hours · ${Math.round(FEE * 100)}% fee when buying and selling` });
+    .setFooter({ text: `% change uses recent history · prices update hourly · ${Math.round(FEE * 100)}% fee when buying and selling` });
 }
 
 function detail(sym, userId) {
@@ -31,7 +31,7 @@ function detail(sym, userId) {
       { name: 'Price', value: `**${fmtPrice(price(sym))}** 🪙`, inline: true },
       { name: '24h change', value: trend(change(sym)), inline: true },
       { name: '24h range', value: `${fmtPrice(low)} - ${fmtPrice(high)}`, inline: true },
-      { name: 'Last 24 hours', value: `\`${spark(sym, 36, 288)}\`` },
+      { name: 'Recent history', value: `\`${spark(sym, 24, 48)}\`` },
       { name: 'What moves it', value: s.movers }
     )
     .setFooter({ text: `Buy with !!invest ${sym} <coins> · ${Math.round(FEE * 100)}% fee when buying and selling` });
