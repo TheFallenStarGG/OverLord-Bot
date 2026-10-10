@@ -2,7 +2,7 @@ const { FILES } = require('../config');
 const { readJson, writeJson } = require('../lib/storage');
 const { logging } = require('../lib/logging');
 
-const BEAT_MS = 60 * 1000; // how often the bot says "I'm alive"
+const BEAT_MS = 10 * 60 * 1000; // how often the bot says "I'm alive"
 const OFFLINE_AFTER_MS = 3 * 60 * 1000; // a longer silence means the bot was down
 const DISCORD_AFTER_MS = 60 * 1000; // losing Discord for longer than this counts as an incident
 const KEEP_MS = 30 * 24 * 60 * 60 * 1000;
