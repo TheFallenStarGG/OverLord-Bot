@@ -22,13 +22,41 @@ async function safely(name, fn) {
 }
 
 async function check(client) {
-  await safely('Stock market', async () => {
-    const big = pickBroadcast(maybeTick());
-    if (!big) return;
-    logging('info', 'Market news', big.line);
-    await broadcast(client, {
-      embeds: [card(big.pct > 0 ? 0x2ecc71 : 0xe74c3c, 'Market news', `${big.line}\n\nSee the prices with \`!!stocks\`.`)],
-    });
+await safely('Stock market', async () => {
+    const events = maybeTick();
+    const { major, filler } = pickBroadcast(events);
+
+    // Crashes, buyouts, IPOs → always post to the events channel (if configured)
+    for (const e of major) {
+      logging('info', 'Major market event', e.line);
+      const title =
+        e.kind === 'crash' ? '💥 Market crash' :
+        e.kind === 'buyout' ? '🤝 Acquisition' :
+        e.kind === 'ipo' ? '🆕 New listing' :
+        '📈 Market news';
+      const color =
+        e.kind === 'crash' ? 0xe74c3c :
+        e.kind === 'buyout' ? 0x9b59b6 :
+        e.kind === 'ipo' ? 0x2ecc71 :
+        0x3498db;
+      await broadcast(client, {
+        embeds: [card(color, title, `${e.line}\n\nSee the board with \`!!stocks\`.`)],
+      });
+    }
+
+    // Ordinary big swings: still at most about once per hour
+    if (filler) {
+      logging('info', 'Market news', filler.line);
+      await broadcast(client, {
+        embeds: [
+          card(
+            filler.pct > 0 ? 0x2ecc71 : 0xe74c3c,
+            'Market news',
+            `${filler.line}\n\nSee the prices with \`!!stocks\`.`
+          ),
+        ],
+      });
+    }
   });
 
   await safely('Weather', async () => {
