@@ -47,19 +47,34 @@ function detail(sym, userId) {
   return embed;
 }
 
+function newsTag(n) {
+  if (n.kind === 'crash') return '💥';
+  if (n.kind === 'buyout') return '🤝';
+  if (n.kind === 'ipo') return '🆕';
+  if (n.major) return '📢';
+  if (typeof n.pct === 'number' && n.pct < 0) return '📉';
+  if (typeof n.pct === 'number' && n.pct > 0) return '📈';
+  return '•';
+}
+
 function news() {
   const items = getNews();
   return new EmbedBuilder()
     .setColor(0x2ecc71)
     .setTitle('📰 Market news')
-    .setDescription(items.length ? items.map((n) => `<t:${unix(n.at)}:R> ${n.line}`).join('\n') : 'Nothing has happened yet. Check back soon!');
-}
+    .setDescription(
+      items.length
+        ? items.map((n) => `<t:${unix(n.at)}:R> ${newsTag(n)} ${n.line}`).join('\n')
+        : 'Nothing has happened yet. Check back soon!'
+    )
+    .setFooter({ text: '💥 crash · 🤝 buyout · 🆕 IPO · 📈/📉 price moves' });
+  }
 
 module.exports = {
   name: '!!stocks',
   aliases: ['!!market'],
   usage: '!!stocks [symbol | news]',
-  description: 'See the stock market. Prices change every 5 minutes. Add a symbol like `KRKN` for details, or `news` for headlines.',
+  description: 'See the stock market. Prices update hourly. Add a symbol like `KRKN` for details, or `news` for headlines.',
   access: 'free',
 
   async run(message, arg) {
