@@ -174,13 +174,13 @@ module.exports = {
       );
     }
 
-    // ----- Show this server on the public website leaderboards -----
+    // ----- Website leaderboards (on by default, admins can opt out) -----
     if (key === 'website' || key === 'web') {
       if (val !== 'on' && val !== 'off') return message.reply('Use `!!settings website on` or `off`.');
       setWebsiteOn(val === 'on');
       return message.reply(
         val === 'on'
-          ? '🌐 This server can now appear on the website leaderboards (within about 15 minutes). Its name, icon, and member count are public, and so are members\' display names and totals. Members can hide themselves with `!!webhide`.'
+          ? '🌐 This server is listed on the website leaderboards (within about 15 minutes). Its name, icon, and member count are public, and so are members\' display names and totals. Members can hide themselves with `!!webhide`.'
           : '🌐 This server will be removed from the website leaderboards at the next update.'
       );
     }
