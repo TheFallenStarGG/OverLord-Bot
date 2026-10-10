@@ -7,6 +7,7 @@ const {
   getChannel,
   setChannel,
   clearChannel,
+  setWebsiteOn,
 } = require('../lib/serverSettings');
 const access = require('../lib/commandAccess');
 
@@ -75,6 +76,7 @@ module.exports = {
             `**Events channel:** ${s.eventsChannelId ? `<#${s.eventsChannelId}>` : 'off'} · \`!!settings events #channel|off\``,
             `**Level-ups channel:** ${s.levelChannelId ? `<#${s.levelChannelId}>` : 'off'} · \`!!settings levels #channel|off\``,
             `**Realm board:** ${s.boardChannelId ? `<#${s.boardChannelId}>` : 'off'} · \`!!settings board #channel|off\``,
+            `**Website leaderboards:** ${s.website ? 'on' : 'off'} · \`!!settings website on|off\``,
             `**Custom shop titles:** ${s.customTitleCount} · \`!!edittitles\``,
             '',
             `**Turned-off commands:** ${listText(disabled)} · \`!!settings command <name> on|off\``,
@@ -169,6 +171,17 @@ module.exports = {
       }
       return message.reply(
         `Realm board set to ${channel}. I'll keep **one** message updated there (weather, decrees, bounty, throne, market, chronicles).\nAnyone can peek anytime with \`!!board\`.`
+      );
+    }
+
+    // ----- Show this server on the public website leaderboards -----
+    if (key === 'website' || key === 'web') {
+      if (val !== 'on' && val !== 'off') return message.reply('Use `!!settings website on` or `off`.');
+      setWebsiteOn(val === 'on');
+      return message.reply(
+        val === 'on'
+          ? '🌐 This server can now appear on the website leaderboards (within about 15 minutes). Its name, icon, and member count are public, and so are members\' display names and totals. Members can hide themselves with `!!webhide`.'
+          : '🌐 This server will be removed from the website leaderboards at the next update.'
       );
     }
     
