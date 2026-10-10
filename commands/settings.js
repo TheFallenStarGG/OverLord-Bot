@@ -42,7 +42,7 @@ function listText(items, max = 12) {
 
 module.exports = {
   name: '!!settings',
-  usage: '!!settings [gambling|rob|events|levels|command|ignore|unignore|games] [on|off|add|remove|#channel]',
+  usage: '!!settings [gambling|rob|events|levels|board|command|ignore|unignore|games] [on|off|add|remove|#channel]',
   description:
     'Server setup for admins (Manage Server): gambling, rob, events and level-up channels, turning commands off, ignored channels, and games-only channels.',
   access: 'free',
@@ -74,6 +74,7 @@ module.exports = {
             `**Robbing:** ${s.rob ? 'on' : 'off'} · \`!!settings rob on|off\``,
             `**Events channel:** ${s.eventsChannelId ? `<#${s.eventsChannelId}>` : 'off'} · \`!!settings events #channel|off\``,
             `**Level-ups channel:** ${s.levelChannelId ? `<#${s.levelChannelId}>` : 'off'} · \`!!settings levels #channel|off\``,
+            `**Realm board:** ${s.boardChannelId ? `<#${s.boardChannelId}>` : 'off'} · \`!!settings board #channel|off\``,
             `**Custom shop titles:** ${s.customTitleCount} · \`!!edittitles\``,
             '',
             `**Turned-off commands:** ${listText(disabled)} · \`!!settings command <name> on|off\``,
@@ -123,6 +124,54 @@ module.exports = {
       return message.reply(`Level-ups will post in ${channel}.`);
     }
 
+    // ----- Realm board (single updating "Today in the Realm" message) -----
+    if (key === 'board' || key === 'realmboard' || key === 'realm-board' || key === 'today') {
+      const { setBoardChannel, clearBoardChannel, refreshBoard, getBoardChannelId } = require('../lib/realmBoard');
+
+      if (val === 'off' || val === 'clear' || val === 'none') {
+        clearBoardChannel();
+        return message.reply('Realm board turned **off**. The old message stays unless you delete it.');
+      }
+
+      const channel =
+        message.mentions.channels.first() ||
+        guild.channels.cache.get(parts[1]) ||
+        null;
+
+      if (!channel?.isTextBased()) {
+        const current = getBoardChannelId();
+        return message.reply(
+          current
+            ? `Realm board is ${current ? `<#${current}>` : 'off'}. Use \`!!settings board #channel\` or \`off\`.\nThis posts **one** message there and **edits it** over time (not a feed).`
+            : 'Use `!!settings board #channel` to post a living **Today in the Realm** message, or `off` to disable.'
+        );
+      }
+
+      const perms = channel.permissionsFor(message.client.user);
+      if (
+        !perms?.has([
+          require('discord.js').PermissionFlagsBits.ViewChannel,
+          require('discord.js').PermissionFlagsBits.SendMessages,
+          require('discord.js').PermissionFlagsBits.EmbedLinks,
+        ])
+      ) {
+        return message.reply(
+          `I need **View Channel**, **Send Messages**, and **Embed Links** in ${channel}.`
+        );
+      }
+
+      setBoardChannel(channel.id);
+      const r = await refreshBoard(message.client);
+      if (!r.ok) {
+        return message.reply(
+          `Channel saved, but I couldn't post yet (${r.reason}). Fix permissions, then \`!!board refresh\`.`
+        );
+      }
+      return message.reply(
+        `Realm board set to ${channel}. I'll keep **one** message updated there (weather, decrees, bounty, throne, market, chronicles).\nAnyone can peek anytime with \`!!board\`.`
+      );
+    }
+    
     // ----- Turn commands on or off: !!settings command rob off -----
     if (key === 'command' || key === 'commands' || key === 'cmd') {
       const name = parts[1];
