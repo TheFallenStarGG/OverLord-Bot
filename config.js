@@ -50,5 +50,7 @@ module.exports = {
     inbox: path.join(__dirname, 'inbox.json'),
     redditAllow: path.join(__dirname, 'reddit_allow.json'),
     webhide: path.join(__dirname, 'webhide.json'),
+    webstatus: path.join(__dirname, 'webstatus.json'),
+    webhistory: path.join(__dirname, 'webhistory.json'),
   },
 };
