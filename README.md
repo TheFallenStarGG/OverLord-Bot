@@ -3,7 +3,7 @@
 A feature-rich Discord bot for **economy**, **games**, **combat**, **stocks**, and **server events**.  
 Prefix commands use `!!` (preferred). Slash commands also exist but are **experimental**.
 
-- **Website / Terms / Privacy:** https://thefallenstargg.github.io/Overlord-ToS/
+- **Website / Terms / Privacy:** https://thefallenstargg.github.io/Overlord-Website/
 - **Source:** this repository
 
 Economy and most progression are **per server**. Coins and items have **no real-world value**.
@@ -383,8 +383,8 @@ When contributing:
 
 ## Links
 
-- Terms: https://thefallenstargg.github.io/Overlord-ToS/terms.html
-- Privacy: https://thefallenstargg.github.io/Overlord-ToS/privacy.html
+- Terms: https://thefallenstargg.github.io/Overlord-Website/terms.html
+- Privacy: https://thefallenstargg.github.io/Overlord-Website/privacy.html
 - Support: use `!!support` in Discord once configured
 
 ---
