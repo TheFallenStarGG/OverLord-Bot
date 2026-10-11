@@ -11,14 +11,37 @@ module.exports = (client, ctx) => {
   client.on('error', (err) => logging('error', 'Discord client error', err));
   client.on('warn', (info) => logging('warn', 'Discord warning', info));
 
-  // Connection status
-  client.on('shardDisconnect', (event, id) =>
-    logging('warn', 'Disconnected from Discord', `shard ${id}, code ${event.code}`)
-  );
-  client.on('shardReconnecting', (id) => logging('info', 'Reconnecting to Discord', `shard ${id}`));
-  client.on('shardResume', (id, replayed) =>
-    logging('info', 'Reconnected to Discord', `shard ${id}, replayed ${replayed} events`)
-  );
+  // Connection status — only log if Discord was gone for a while (not brief blips)
+  const DISCORD_LOG_AFTER_MS = 3 * 60 * 1000; // 3 minutes
+  const droppedAt = new Map(); // shard id -> when it dropped
+
+  client.on('shardDisconnect', (event, id) => {
+    if (!droppedAt.has(id)) droppedAt.set(id, Date.now());
+    // No log here — wait to see if it comes back quickly
+  });
+
+  client.on('shardReconnecting', (id) => {
+    // Silent: reconnecting every blip is noise
+  });
+
+  client.on('shardResume', (id, replayed) => {
+    const since = droppedAt.get(id);
+    droppedAt.delete(id);
+    if (!since) return;
+    const ms = Date.now() - since;
+    if (ms < DISCORD_LOG_AFTER_MS) return; // short blip — ignore
+    const mins = Math.round(ms / 60000);
+    logging(
+      'info',
+      'Reconnected to Discord',
+      `shard ${id}, offline about ${mins} min, replayed ${replayed} events`
+    );
+  });
+
+  client.on('shardReady', (id) => {
+    // First ready or recovery without a tracked drop — clear any stale timer
+    droppedAt.delete(id);
+  });
 
   // Servers
   client.on('guildCreate', (guild) =>
