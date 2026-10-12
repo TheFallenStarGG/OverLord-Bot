@@ -1,20 +1,13 @@
-const { claimDaily, fmt } = require('../lib/economy');
+const daily = require('../lib/daily');
 
 module.exports = {
   name: '!!daily',
-  usage: '!!daily',
-  description: 'Claims your free coins for the day. Claiming on consecutive days builds a streak bonus.',
+  usage: '!!daily [stats|top]',
+  description:
+    'Claim your free coins for the day. Pick Safe, Lucky, or Gamble, hit streak milestones, and check `!!daily stats`.',
   access: 'free',
 
-  async run(message) {
-    const result = claimDaily(message.author.id);
-
-    if (!result.ok) {
-      return message.reply(`⏳ You already claimed today. Come back <t:${result.nextTs}:R>!`);
-    }
-    await message.reply(
-      `🎁 You claimed **${fmt(result.amount)}**!\n🔥 Streak: **${result.streak}** day${result.streak === 1 ? '' : 's'} ` +
-      `(the bonus grows for up to 11 days in a row)\nBalance: ${fmt(result.coins)}`
-    );
+  async run(message, arg) {
+    return daily.run(message, arg);
   },
 };
