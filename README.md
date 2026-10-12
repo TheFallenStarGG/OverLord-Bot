@@ -1,40 +1,37 @@
 # The Overlord
 
-Discord bot for a light **per-server economy**, optional **games/combat**, **stocks**, and a shared **realm** layer (weather, events, board, Gazette).  
-**Prefix `!!` is the main way to use it.** Slash commands exist but are experimental.
+A feature-rich Discord bot for **economy**, **games**, **combat**, **stocks**, and **server events**.  
+Prefix commands use `!!` (preferred). Slash commands also exist but are **experimental**.
 
-- **Website:** https://thefallenstargg.github.io/Overlord-Website/
-- **Dashboard (Discord login):** https://thefallenstargg.github.io/Overlord-Website/dashboard.html
-- **Support:** https://discord.gg/vZrsPCMHys
-- **Terms / Privacy:** on the website
+- **Website / Terms / Privacy:** https://thefallenstargg.github.io/Overlord-Website/
+- **Source:** this repository
 
-Virtual coins and items have **no real-world value**. Progress is **per server** unless a feature says otherwise.
+Economy and most progression are **per server**. Coins and items have **no real-world value**.
 
 ---
 
-## Features
+## Features (overview)
 
-| Area | What you get |
-|------|----------------|
-| Economy | Daily, work, shop, trade, craft, fish/mine, rob (toggleable), quests, prestige |
-| Games | Wordle and other casual games; gambling can be disabled per server |
-| Combat | Duels, bosses, gear/forge, loadouts (optional) |
-| Markets | Stocks, companies, weather, muscle |
-| Realm | Board (`!!board` / settings), Gazette, decrees, bounties, seasons, server wars |
-| Admin | `!!settings`, title shop, reaction roles, data wipe |
-| Website | Live leaderboards, stocks, wars, wiki, commands, status, changelog |
-| Dashboard | OAuth login: your stats, full server settings, titles and role panels |
-| Staff | Private admin panel (logs, inbox, tools) for the owner and allowlisted people |
+- Virtual economy: daily, work, shop, rob, give, quests, prestige
+- Games: Wordle, cards, board games, betting games (can be disabled per server)
+- Combat: duels, bosses, loadouts, forging, rebellion / usurper
+- Markets: stocks, companies, weather, hired muscle
+- World loop: Gazette, decrees, bounties, seasons, server wars
+- Admin tools: settings, custom title shop (+ optional Discord roles), data deletion
+- Safety: rate limits, abuse checks, owner blacklist
+- Cloud saves via **Turso** (libSQL)
 
 ---
 
 ## Requirements
 
-- **Node.js 18+**
-- Discord application with **Message Content Intent**
-- Recommended invite permission integer: **268438528** (View Channel, Send Messages, Embed Links, Read Message History, Add Reactions, Manage Roles)
-- Long-running host (e.g. bot-hosting.net)
-- **Turso** (libSQL) database
+- **Node.js** 18+ (fetch + modern Discord.js)
+- A Discord bot application with:
+  - **Message Content Intent** enabled
+  - Invite permissions (recommended integer **`268438528`**):
+    - View Channel, Send Messages, Embed Links, Read Message History, Add Reactions, **Manage Roles**
+- Hosting that can run a long-lived Node process (e.g. bot-hosting.net)
+- A **Turso** database (or compatible libSQL HTTP endpoint)
 
 ---
 
@@ -42,115 +39,354 @@ Virtual coins and items have **no real-world value**. Progress is **per server**
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| TOKEN | Yes | Discord bot token |
-| TURSO_DATABASE_URL | Yes | Database URL |
-| TURSO_AUTH_TOKEN | Yes | Database token |
-| OWNER_ID | Strongly recommended | Your Discord user ID |
-| WEB_GITHUB_TOKEN | For public site data | Pushes leaderboards/wiki/etc. to the website data branch |
-| WEB_REPO | No | Default TheFallenStarGG/Overlord-Website |
-| WEB_BRANCH | No | Default data |
-| OPENROUTER_API_KEY | For Gazette AI | Optional |
-| DAILY_LIMIT | No | AI daily cap (default 50) |
-| SUPPORT_URL | No | Overrides support invite for !!support |
-| HOME_GUILD_ID | Migration only | Legacy global to per-server import |
+| `TOKEN` | Yes | Discord bot token |
+| `TURSO_DATABASE_URL` | Yes | Turso DB URL (`libsql://…` or `https://…`) |
+| `TURSO_AUTH_TOKEN` | Yes | Turso auth token |
+| `OWNER_ID` | Strongly recommended | Your Discord user ID (owner commands) |
+| `HOME_GUILD_ID` | Only for legacy migration | Original server ID when moving old global JSON into per-server data |
+| `OPENROUTER_API_KEY` | For Gazette AI | OpenRouter API key |
+| `DAILY_LIMIT` | No | Daily AI request cap (default `50`) |
+| `SUPPORT_URL` | No | Support server invite used by `!!support` |
 
-Never commit secrets.
+Never commit tokens or secrets.
 
 ---
 
 ## Setup
 
+```bash
 git clone https://github.com/TheFallenStarGG/OverLord-Bot.git
 cd OverLord-Bot
 npm install
-# set env vars on your host
+# set env vars in your host panel or a local .env loader you provide
 node index.js
+```
 
-### Invite
+### Invite URL
 
-https://discord.com/api/oauth2/authorize?client_id=1555446743515144232&permissions=268438528&scope=bot%20applications.commands
+```text
+https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=268438528&scope=bot%20applications.commands
+```
 
----
+Replace `YOUR_CLIENT_ID` with the Application ID from the Discord Developer Portal.
 
-## First-time server setup
+### First-time server setup (admins)
 
-1. Invite the bot with the permissions above
-2. Run !!tutorial admin or open Dashboard then Server settings
-3. Set events channel (Gazette, bosses, decrees)
-4. Optional: realm board, level-ups, turn off rob/gambling
-5. Members: !!tutorial, !!help, !!daily
+1. `!!tutorial admin`
+2. `!!settings events #channel` — Gazette, bosses, decrees, updates
+3. `!!settings levels #channel` — optional level-up messages
+4. `!!settings` — gambling / rob / ignored channels / disabled commands / game channels
+5. Optional: `!!edittitles` — custom shop titles and Discord roles
 
-Website listing is on by default. Opt out: !!settings website off.
-Hide yourself from public boards: !!webhide.
-
----
-
-## Website and dashboard
-
-| URL | Purpose |
-|-----|---------|
-| https://thefallenstargg.github.io/Overlord-Website/ | Overview and live status |
-| https://thefallenstargg.github.io/Overlord-Website/dashboard.html | Login, stats, server settings, titles, role panels |
-| https://thefallenstargg.github.io/Overlord-Website/commands.html | Command list |
-| https://thefallenstargg.github.io/Overlord-Website/setup.html | Admin checklist |
-| https://thefallenstargg.github.io/Overlord-Website/faq.html | Common questions |
-| https://thefallenstargg.github.io/Overlord-Website/status.html | Online / incidents |
-
-Dashboard auth uses a Cloudflare Worker and Discord OAuth (identify and guilds).
-Settings changes go through a queue in Turso; the bot applies them and re-checks Manage Server.
-
-Admin panel (owner and allowlist): logs, reports/feedback, overview, moderation tools.
-
-Public site JSON is published to the repo data branch when WEB_GITHUB_TOKEN is set.
+Players: `!!tutorial`, then `!!daily`, `!!work`, `!!help`.
 
 ---
 
-## Commands (summary)
+## Project structure
 
-Use !!help in Discord for the live list. Groups include:
+```text
+index.js          Bot entry: DB init, load commands/events, login
+config.js         Constants, file paths, scoped data list
+commands/         One file per !! command
+events/           Discord event wiring (messages, buttons, timers)
+lib/              Core logic (economy, games, storage, world, …)
+package.json      discord.js, @libsql/client
+```
 
-- Economy: !!daily, !!work, !!bal, !!shop, !!buy, !!craft, !!fish, !!mine
-- Games / combat: !!wordle, !!duel, !!boss, !!loadout
-- Realm: !!board, !!event, !!bounty
-- Admin: !!settings, !!edittitles, !!reactionroles, !!deletedata, !!tutorial admin
-- Meta: !!help, !!changelog, !!invite, !!support, !!feedback, !!report
-
-Owner-only and private media commands are not documented on the public site.
+`index.js` loads every `commands/*.js` and `events/*.js`. A single broken file is skipped (soft-fail) so the rest of the bot can start.
 
 ---
 
-## Project layout
+## Commands
 
-| Path | Role |
+Access:
+
+- **free** — anyone (unless the server disabled that command)
+- **owner** / **owner-required** — only `OWNER_ID`
+
+Aliases are listed where they exist.
+
+### Economy & progression
+
+| Command | Usage | Description |
+|---------|--------|-------------|
+| `!!balance` | `!!balance [@user]` | Show coin balance |
+| `!!daily` | `!!daily` | Daily coins + streak |
+| `!!work` | `!!work` | Job payout (career ladder) |
+| `!!career` | `!!career` | Job rank and progress |
+| `!!rob` | `!!rob @user` | Attempt to steal coins |
+| `!!give` | `!!give @user <amount>` | Give coins (large amounts need **yes** confirm) |
+| `!!trade` | `!!trade @user` | Trade coins/items in a two-sided UI |
+| `!!tribute` | `!!tribute <amount>` | Pay the Overlord; affects rebellion meter |
+| `!!quests` | `!!quests` | Daily/weekly quests |
+| `!!prestige` | `!!prestige` | Prestige for permanent bonuses |
+| `!!leaderboard` | `!!leaderboard [coins\|xp\|…]` | Server leaderboard |
+| `!!globalleaderboard` | `!!globalleaderboard` | Cross-server ranking |
+| `!!rank` | `!!rank [@user]` | Level, XP bar, title |
+| `!!profile` | `!!profile [@user]` | Full profile card |
+| `!!lottery` | `!!lottery` | Lottery tickets / info |
+
+### Shop & gathering
+
+| Command | Usage | Description |
+|---------|--------|-------------|
+| `!!shop` | `!!shop [page]` | Browse shop pages |
+| `!!buy` | `!!buy <item> [amount]` | Buy items / titles |
+| `!!sell` | `!!sell <item> [amount]` | Sell loot |
+| `!!inventory` | `!!inventory` | Show inventory |
+| `!!use` | `!!use <item> [amount]` | Use consumables or equip titles |
+| `!!fish` | `!!fish` | Fishing minigame / loot |
+| `!!mine` | `!!mine` | Mining minigame / loot |
+| `!!pet` | `!!pet` | Pet status / actions |
+
+### Games
+
+| Command | Usage | Description |
+|---------|--------|-------------|
+| `!!wordle` | `!!wordle` | Channel Wordle |
+| `!!tictactoe` | `!!tictactoe @user [bet]` | Tic-tac-toe |
+| `!!connect4` | `!!connect4 @user [bet]` | Connect Four |
+| `!!battleship` | `!!battleship [@user] [bet]` | Battleship (PvP or solo) |
+| `!!blackjack` | `!!blackjack [bet]` | Blackjack |
+| `!!minesweeper` | `!!minesweeper [bet]` | Minesweeper |
+| `!!crash` | `!!crash [bet]` | Crash multiplier game |
+| `!!higherlower` | `!!higherlower [bet]` | Higher or lower |
+| `!!hangman` | `!!hangman` | Hangman |
+| `!!liarsdice` | `!!liarsdice [bet]` | Liar’s dice |
+| `!!slots` | `!!slots [bet]` |Slots |
+| `!!gamble` | `!!gamble [bet]` | Simple gamble |
+| `!!roulette` | `!!roulette <bet> <choice>` | Roulette |
+| `!!heist` | `!!heist` | Group heist flow |
+
+Betting games respect **`!!settings gambling`**. Free (no-bet) games can still work when gambling is off.
+
+### Combat & world
+
+| Command | Usage | Description |
+|---------|--------|-------------|
+| `!!duel` | `!!duel @user [bet] [ranked] [bo3]` | Class-based duel |
+| `!!boss` | `!!boss` | Active raid boss info |
+| `!!rebellion` | `!!rebellion` | Rebellion meter / raid status |
+| `!!usurper` | `!!usurper [decree\|stipend\|challenge]` | Throne holder actions |
+| `!!bounty` | `!!bounty` | Current bounty |
+| `!!loadout` | `!!loadout …` | Class, gear, battle items |
+| `!!forge` | `!!forge …` | Craft weapons/armor from materials |
+| `!!stats` | `!!stats` | Combat stats |
+| `!!ranked` | `!!ranked` | Ranked ratings / seasons |
+| `!!tournament` | `!!tournament [join\|leave]` | Weekly tournament bracket |
+| `!!decree` | `!!decree` | Active Overlord decrees |
+| `!!event` | `!!event` | Active server events |
+| `!!gazette` | `!!gazette` | Latest Gazette edition |
+| `!!war` | `!!war [join\|leave]` | Weekly server war (`!!serverwar`) |
+| `!!project` | `!!project` | Realm projects |
+
+### Market & muscle
+
+| Command | Usage | Description |
+|---------|--------|-------------|
+| `!!stocks` | `!!stocks` | Market prices / news |
+| `!!invest` | `!!invest <symbol> <coins>` | Buy shares |
+| `!!cashout` | `!!cashout <symbol\|all> [amount]` | Sell shares (large sells confirm) |
+| `!!portfolio` | `!!portfolio` | Your holdings |
+| `!!ipo` | `!!ipo` | Company IPO flow |
+| `!!forecast` | `!!forecast` | Weather forecast |
+| `!!muscle` | `!!muscle` | Hired muscle |
+| `!!spy` | `!!spy @user` | Spy on another player’s defenses |
+
+### Server admin & setup
+
+| Command | Usage | Description |
+|---------|--------|-------------|
+| `!!settings` | `!!settings …` | Gambling, rob, channels, ignore list, disable commands, game channels |
+| `!!events-channel` | `!!events-channel [#channel\|off]` | Events / Gazette channel |
+| `!!levelchannel` | `!!levelchannel [#channel\|off]` | Level-up messages channel |
+| `!!edittitles` | `!!edittitles …` | Custom shop titles + optional roles |
+| `!!deletedata` | `!!deletedata` | Wipe **all** data for this server (confirm) |
+| `!!tutorial` | `!!tutorial [admin]` | Player or admin onboarding |
+
+### Utility & meta
+
+| Command | Usage | Description |
+|---------|--------|-------------|
+| `!!help` | `!!help [page\|search]` | Command list, pages, or search |
+| `!!changelog` | `!!changelog [page]` | Patch notes (`!!updates`) |
+| `!!poll` | `!!poll …` | Quick poll |
+| `!!roll` | `!!roll …` | Dice |
+| `!!flip` | `!!flip` | Coin flip |
+| `!!choose` | `!!choose a \| b \| c` | Random choice |
+| `!!donate` | `!!donate` | Support the bot |
+| `!!invite` | `!!invite` | Bot invite link |
+| `!!support` | `!!support` | Support / help links |
+| `!!feedback` | `!!feedback <text>` | Send feedback to the operator |
+| `!!report` | `!!report <text>` | Report a bug / issue |
+| `!!status` | `!!status` | Uptime, latency, DB, memory |
+| `!!inbox` | (owner tooling) | Owner inbox routing for reports/feedback |
+
+### Owner only
+
+| Command | Usage | Description |
+|---------|--------|-------------|
+| `!!doctor` | `!!doctor` | Health check |
+| `!!usage` | `!!usage` | AI usage counters |
+| `!!models` | `!!models` | Model list / ratings view |
+| `!!block` / `!!unblock` | `!!block <name>` | Block OpenRouter model ID substrings |
+| `!!bossspawn` | `!!bossspawn [hp]` | Force a boss spawn |
+| `!!blacklist` | `!!blacklist …` | Block users or entire servers (`!!bl`) |
+
+> Exact strings can change slightly in code; `!!help` and `!!changelog` are always authoritative in a running bot.
+
+---
+
+## `lib/` modules
+
+### Core platform
+
+| File | Role |
 |------|------|
-| index.js | Starts the client, loads commands/events |
-| config.js | Constants, file names, channel IDs |
-| commands/ | One file per !! command |
-| events/ | Discord listeners |
-| lib/storage.js | Turso and per-guild scoped data |
-| lib/economy.js | Coins, XP, inventories |
-| lib/serverSettings.js | Toggles, channels, custom titles |
-| lib/guildSettings.js | Applies dashboard / settings changes |
-| lib/adminBridge.js | Publishes snapshots and processes website action queue |
-| lib/reactionRoles.js | Role panels |
-| lib/webexport.js | Pushes public JSON to GitHub |
-| lib/changelog.js | In-bot and site changelog entries |
+| `storage.js` | Turso client, cache, scoped per-guild data, read/write batching |
+| `economy.js` | Users, coins, XP, work, daily, rob, bets helpers, leaderboards |
+| `serverSettings.js` | Per-server toggles, channels, custom titles |
+| `commandAccess.js` | Disabled commands, ignored channels, game-channel limits |
+| `confirm.js` | Pending **yes/no** confirmations |
+| `guard.js` | Blacklist + abuse hooks before commands run |
+| `abuse.js` | Spam / farming heuristics |
+| `blacklist.js` | Persisted blocked users/guilds |
+| `logging.js` | Console + optional Discord log channel |
+| `utils.js` | `replyLines`, duration/bytes helpers |
+| `slashBridge.js` | Slash ↔ prefix adapter |
+| `guildData.js` | Wipe server data; schedule delete after leave (~30 days) |
+| `digest.js` | Aggregated operator digest / summary helpers |
+| `inbox.js` | Report/feedback submission to owner channels |
+
+### World & events
+
+| File | Role |
+|------|------|
+| `world.js` | Per-server world blob: rebellion, bounty, gazette, settings |
+| `announce.js` | Events-channel registry + broadcast |
+| `modifiers.js` | Decrees & timed server events |
+| `gazette.js` | Daily newspaper composition + AI editorial |
+| `boss.js` | Raid boss fights |
+| `bounty.js` | Rotating bounties |
+| `rebellion.js` | Meter, raids, usurper |
+| `throne.js` | Usurp button / throne interactions |
+| `seasons.js` | Season state |
+| `war.js` | Weekly server war |
+| `tournament.js` | Tournament brackets |
+| `weather.js` | Weather cycle and effects |
+| `questDefs.js` / `quests.js` | Quest definitions and progress |
+
+### Economy satellites
+
+| File | Role |
+|------|------|
+| `items.js` | Shop catalog, loot tables, custom title merge |
+| `inventory.js` | Buy / use / sell inventory logic |
+| `shopPages.js` | Shop embeds + buttons |
+| `gathering.js` | Fish/mine resolution |
+| `stocks.js` | Market simulation |
+| `companies.js` | Player companies / IPO hooks |
+| `muscle.js` | Hired muscle jobs |
+| `spy.js` | Spy reports |
+| `pets.js` / `petData.js` | Pets |
+| `prestige.js` | Prestige UI + perform |
+| `lottery.js` | Lottery state |
+| `ranked.js` | Ranked ratings |
+| `realm.js` | Realm projects / perks |
+| `donate.js` | Donation links + occasional nudge |
+| `helpPages.js` | `!!help` pages + search |
+| `changelog.js` | In-bot changelog entries |
+
+### AI (Gazette only)
+
+| File | Role |
+|------|------|
+| `ai.js` | OpenRouter chat completions (stream) |
+| `models.js` | Free model list, blocks, ratings |
+| `usage.js` | Daily/minute AI usage tracking |
+
+### Combat
+
+| File | Role |
+|------|------|
+| `combat/classes.js` | Classes and arenas |
+| `combat/engine.js` | Round resolution |
+| `combat/gear.js` | Gear, titles, profiles, duel stats |
+
+### Games (`lib/games/`)
+
+| File | Role |
+|------|------|
+| `common.js` | Shared lobby, bets, buttons, lifecycle |
+| `duel.js` | Duel flow |
+| `tictactoe.js`, `connect4.js`, `battleship.js` | Board games |
+| `blackjack.js`, `crash.js`, `higherlower.js`, `minesweeper.js` | Solo/table games |
+| `hangman.js`, `liarsdice.js`, `trade.js`, `wordle.js`, `words.js` | Other games + word list |
 
 ---
 
-## Privacy (short)
+## `events/` modules
 
-We store Discord IDs and per-server gameplay data to run the bot.
-Website login uses Discord OAuth; staff tools are restricted.
-Public leaderboards only for servers/users that have not opted out.
-Details: https://thefallenstargg.github.io/Overlord-Website/privacy.html
+| File | Role |
+|------|------|
+| `messageCreate.js` | Prefix commands, confirms, guards, flood control |
+| `slashCommands.js` | Register + handle slash commands |
+| `help.js` | Help pagination buttons |
+| `tutorial.js` | Tutorial pagination buttons |
+| `gameButtons.js` | Game button/modal router |
+| `features.js` | Shop/prestige/heist/boss/lottery interactions |
+| `combat.js` | Duel rematch + tournament ready checks |
+| `economy.js` | Message XP + level-up posts |
+| `world.js` | Boss raids, bounties, usurper, gazette ticks |
+| `market.js` | Stocks, muscle, weather announcements |
+| `decree.js` | Periodic decrees |
+| `serverEvents.js` | Timed modifier events |
+| `seasons.js` | Season / war timers and payouts |
+| `announce.js` | New server / changelog announce helpers |
+| `changelog.js` | Changelog buttons |
+| `spy.js` | Spy intel buttons |
+| `wordle.js` | Wordle guess listener |
+| `logging.js` | Attach logger + flush on shutdown |
+| `status.js` | Presence / status text rotation |
 
 ---
 
-## Contact
+## Data model (important)
 
-Operator: TheFallenStarGG
-Email: DarkstarGaming2326@proton.me
-Support: https://discord.gg/vZrsPCMHys
+- **Scoped files** (per guild): modifiers, world, economy, lottery, ranked, stocks, weather, muscle, companies, realm, tournament, seasons, …
+- **Global files**: announce map, usage, model blocks/ratings, blacklist, inbox channels, digest, etc.
+- Persistence: in-memory cache + periodic flush to **Turso**.
+- Removing the bot from a server schedules **deletion of that server’s data** after a retention window (~**30 days**). Admins can wipe sooner with `!!deletedata`.
 
-Not affiliated with Discord Inc.
+---
+
+## Slash commands
+
+- Registered automatically on startup from the same command list.
+- Still **experimental**; many flows work better with `!!`.
+- Prefer prefix for mentions, complex args, and games.
+
+---
+
+## License / contributing
+
+Add your license file if you have one (e.g. MIT).
+
+When contributing:
+
+1. Keep commands in `commands/` with `name`, `usage`, `description`, `access`, `run`.
+2. Put shared logic in `lib/`.
+3. Wire timers/buttons in `events/`.
+4. Add a short entry at the **top** of `lib/changelog.js`.
+
+---
+
+## Links
+
+- Terms: https://thefallenstargg.github.io/Overlord-Website/terms.html
+- Privacy: https://thefallenstargg.github.io/Overlord-Website/privacy.html
+- Support: use `!!support` in Discord once configured
+
+---
+
+*Not affiliated with Discord Inc.*
