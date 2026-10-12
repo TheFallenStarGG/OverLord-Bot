@@ -2,8 +2,9 @@ const { runGather } = require('../lib/gathering');
 
 module.exports = {
   name: '!!mine',
-  usage: '!!mine',
-  description: 'Go mining! Every 3 minutes you can dig up something to sell. Better pickaxes find rarer ores.',
+  usage: '!!mine [stats|top]',
+  description:
+    'Pick a mining zone (Surface, Cave, Deep), optional timing bonus, and climb delver ranks. Better picks help. `!!mine stats`.',
   access: 'free',
 
   async run(message) {
