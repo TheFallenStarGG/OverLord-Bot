@@ -5,7 +5,8 @@ module.exports = {
   usage: '!!rob @user',
   description:
     `Try to steal ${ROB.MIN_PERCENT}-${ROB.MAX_PERCENT}% of someone's coins. You have a ${Math.round(ROB.SUCCESS_CHANCE * 100)}% chance to pull it off, ` +
-    `but if you're caught you pay them the same amount. Both of you need at least ${ROB.MIN_COINS} coins. ` +
+    `but if you're caught you pay them the same amount. You never risk more than ${ROB.MAX_STAKE_PERCENT}% of your own coins. ` +
+    `Both of you need at least ${ROB.MIN_COINS} coins. ` +
     `${ROB.COOLDOWN_MS / 60000} minute cooldown, and robbed players are protected for ${ROB.PROTECTION_MS / 60000} minutes. ` +
     'A Lockpick (`!!use lockpick`) helps you, and a Padlock protects you.',
   access: 'free',
@@ -31,7 +32,7 @@ module.exports = {
       );
     }
     await message.reply(
-      `🚔 You got caught trying to rob <@${target.id}>! You had to pay them **${fmt(result.amount)}**.${pick}\n` +
+      `🚔 You got caught trying to rob <@${target.id}>! You had to pay them **${fmt(result.amount)}** (${result.percent}% of your coins).${pick}\n` +
       `Balance: ${fmt(result.robberCoins)}`
     );
   },
