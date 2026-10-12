@@ -33,7 +33,10 @@ module.exports = (client) => {
             .setDescription(
               'Thanks for adding me! Everything runs on `!!` commands. Start with `!!help`, `!!daily`, and `!!work`.\n\n' +
                 '**Admins:** run `!!events-channel #channel` to get the daily Gazette, world events, boss fights, and update notes there. ' +
-                'I won\'t post any of that until you pick a channel.'
+                'I won\'t post any of that until you pick a channel.\n\n' +
+                '⚔️ **Cross-server raids are ON by default.** Players can start a raid against a random other server, and a temporary raid channel is created in a **⚔️ Raids** category. ' +
+                'Only players who join a raid can chat there (messages are shared with the rival server) or be robbed. ' +
+                'Pick a different category with `!!raid-config category <name>`. **To opt out**, an admin runs `!!raid-config optout`, and any player can run `!!raid optout`.'
             ),
         ],
       });
