@@ -48,6 +48,7 @@ module.exports = {
     seasons: path.join(__dirname, 'seasons.json'),
     war: path.join(__dirname, 'war.json'),
     inbox: path.join(__dirname, 'inbox.json'),
+    raid: path.join(__dirname, 'raid.json'),
     redditAllow: path.join(__dirname, 'reddit_allow.json'),
     webhide: path.join(__dirname, 'webhide.json'),
     webstatus: path.join(__dirname, 'webstatus.json'),
