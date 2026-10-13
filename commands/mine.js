@@ -1,13 +1,14 @@
 const { runGather } = require('../lib/gathering');
+const { isLegacy } = require('../lib/legacyMode');
 
 module.exports = {
   name: '!!mine',
   usage: '!!mine [stats|top]',
   description:
-    'Pick a mining zone (Surface, Cave, Deep), optional timing bonus, and climb delver ranks. Better picks help. `!!mine stats`.',
+    'Pick a zone and follow the on-screen strike prompt for better rares. `!!legacy-commands` for the classic version.',
   access: 'free',
 
   async run(message) {
-    await runGather(message, 'mine');
+    await runGather(message, 'mine', { legacy: isLegacy(message.author.id) });
   },
 };
