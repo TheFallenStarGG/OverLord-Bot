@@ -5,7 +5,7 @@ module.exports = {
   name: '!!raid',
   usage: '!!raid [rules | status | top | optout | optin]',
   description:
-    'Raid a random server! A live battle channel opens in both servers where players rob each other for 10 minutes. `!!raid rules` explains everything, `!!raid optout` removes you from raids.',
+    'Raid a random server! A live battle channel opens in both servers — strike, ambush, brace, rally, taunt, spy, and mid-raid events. `!!raid rules` explains everything, `!!raid optout` removes you from raids.',
   access: 'free',
 
   async run(message, arg) {
@@ -37,9 +37,9 @@ module.exports = {
       .setColor(0xe74c3c)
       .setTitle('⚔️ Launch a cross-server raid?')
       .setDescription(
-        'I will pick a **random rival server** and open a raid channel in both servers. Everyone who presses **Join Raid** can chat with the other server and rob (or be robbed by) the other side for 10 minutes.\n\n' +
+        'I will pick a **random rival server** and open a raid channel in both servers. Everyone who presses **Join Raid** can chat with the other server and fight the other side with strikes, ambushes, braces, rallies, and more.\n\n' +
           '• You can lose at most **20%** of your wallet in a raid\n' +
-          '• This server can start one raid every 3 hours\n' +
+          '• This server can start a raid about every 90 minutes\n' +
           '• Messages in the raid channel are shared with the other server\n' +
           '• Read the full rules with `!!raid rules`'
       );
