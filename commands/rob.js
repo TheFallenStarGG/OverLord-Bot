@@ -25,10 +25,11 @@ module.exports = {
       if (result.error) return message.reply(result.error);
       if (result.blocked) return message.reply(result.blocked);
       if (result.success) {
-        return message.reply(
-          `🧤 You robbed **${target.username}** for **${fmt(result.amount)}**!\nYour balance: ${fmt(result.robberCoins)}`
-        );
-      }
+        let text =
+          `🧤 You robbed **${target.username}** for **${fmt(result.amount)}**!\nYour balance: ${fmt(result.robberCoins)}`;
+        if (result.bountyNotes?.length) text += '\n\n' + result.bountyNotes.join('\n');
+        return message.reply(text);
+            }
       return message.reply(
         `🚔 Caught! You paid **${fmt(result.amount)}** to **${target.username}**.\nYour balance: ${fmt(peekUser(message.author.id).coins)}`
       );
