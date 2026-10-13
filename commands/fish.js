@@ -1,13 +1,14 @@
 const { runGather } = require('../lib/gathering');
+const { isLegacy } = require('../lib/legacyMode');
 
 module.exports = {
   name: '!!fish',
   usage: '!!fish [stats|top]',
   description:
-    'Pick a fishing zone (Pond, River, Ocean), optional timing bonus, and climb angler ranks. Better rods help. `!!fish stats`.',
+    'Pick a zone and follow the on-screen hook prompt for better rares. `!!legacy-commands` for the classic version.',
   access: 'free',
 
   async run(message) {
-    await runGather(message, 'fish');
+    await runGather(message, 'fish', { legacy: isLegacy(message.author.id) });
   },
 };
