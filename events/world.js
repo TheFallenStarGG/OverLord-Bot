@@ -77,6 +77,9 @@ const safe = async (name, fn) => {
 
 async function tick(client) {
   try {
+    require('../lib/bank').tickUpkeep(150);
+  } catch (_) {}
+  try {
     require('../lib/economyMode').collectWealthTax();
   } catch (_) {}
 
