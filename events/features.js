@@ -60,6 +60,11 @@ module.exports = (client) => {
       if (id.startsWith('shop:')) return await handleShopButton(interaction);
       if (id.startsWith('prestige:')) return await handlePrestigeButton(interaction);
       if (id.startsWith('heist:')) return await handleJoin(interaction);
+      if (id.startsWith('shop:')) return await handleShopButton(interaction);
+      if (id.startsWith('prestige:')) return await handlePrestigeButton(interaction);
+      if (id.startsWith('heist:')) return await handleJoin(interaction);
+      if (id.startsWith('bankheist:')) return await bankHeist.handleInteraction(interaction);
+      if (id.startsWith('boss:')) return await handleBossHit(interaction);
       if (id.startsWith('boss:')) return await handleBossHit(interaction);
     } catch (err) {
       logging('error', 'Button failed', err);
