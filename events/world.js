@@ -76,6 +76,10 @@ const safe = async (name, fn) => {
 };
 
 async function tick(client) {
+  try {
+    require('../lib/economyMode').collectWealthTax();
+  } catch (_) {}
+
   await safe('Throne', async () => {
     const ended = expireUsurper();
     if (ended) {
