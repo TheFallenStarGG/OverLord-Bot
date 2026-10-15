@@ -9,6 +9,7 @@ const { logging } = require('../lib/logging');
 const { bossDue, bossSpawned, bossRetryLater } = require('../lib/modifiers');
 const { getChannel } = require('../lib/announce');
 const { forEachGuild } = require('../lib/storage');
+const bankHeist = require('../lib/bankHeist');
 
 // Bosses follow a saved schedule (2 to 6 hours apart, see lib/modifiers.js), so restarting the bot doesn't affect them
 
