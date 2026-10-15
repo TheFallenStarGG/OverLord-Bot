@@ -43,9 +43,9 @@ function listText(items, max = 12) {
 
 module.exports = {
   name: '!!settings',
-  usage: '!!settings [gambling|rob|events|levels|board|command|ignore|unignore|games] [on|off|add|remove|#channel]',
+  usage: '!!settings [gambling|rob|economy|events|levels|board|command|ignore|unignore|games] [on|off|classic|scarce|add|remove|#channel]',
   description:
-    'Server setup for admins (Manage Server): gambling, rob, events and level-up channels, turning commands off, ignored channels, and games-only channels.',
+    'Server setup for admins (Manage Server): gambling, rob, economy mode (classic|scarce), events and level-up channels, turning commands off, ignored channels, and games-only channels.',
   access: 'free',
 
   async run(message, arg, ctx) {
@@ -73,6 +73,7 @@ module.exports = {
           [
             `**Gambling:** ${s.gambling ? 'on' : 'off'} · \`!!settings gambling on|off\``,
             `**Robbing:** ${s.rob ? 'on' : 'off'} · \`!!settings rob on|off\``,
+            `**Economy:** ${s.economyMode || 'classic'} · \`!!settings economy classic|scarce\``,
             `**Events channel:** ${s.eventsChannelId ? `<#${s.eventsChannelId}>` : 'off'} · \`!!settings events #channel|off\``,
             `**Level-ups channel:** ${s.levelChannelId ? `<#${s.levelChannelId}>` : 'off'} · \`!!settings levels #channel|off\``,
             `**Realm board:** ${s.boardChannelId ? `<#${s.boardChannelId}>` : 'off'} · \`!!settings board #channel|off\``,
@@ -102,7 +103,21 @@ module.exports = {
       return message.reply(`Robbing is now **${val}**.`);
     }
 
-    if (key === 'events' || key === 'event') {
+    if (key === 'economy' || key === 'econ' || key === 'scarce') {
+      const mode = (val === 'scarce' || val === 'realistic') ? 'scarce' : (val === 'classic' || val === 'normal' || val === 'default') ? 'classic' : null;
+      if (!mode) {
+        return message.reply('Use !!settings economy classic or !!settings economy scarce. Details: !!economy');
+      }
+      const { setMode } = require('../lib/economyMode');
+      const { getReserve } = require('../lib/treasury');
+      const { fmt } = require('../lib/economy');
+      setMode(mode);
+      if (mode === 'scarce') {
+        return message.reply('Economy mode scarce. Treasury: ' + fmt(getReserve()) + '. See !!economy');
+      }
+      return message.reply('Economy mode classic (default).');
+    }
+    if (key === 'events'  || key === 'event') {
       if (!val || val === 'off') {
         clearChannel(guild.id);
         return message.reply('Events channel is off.');
