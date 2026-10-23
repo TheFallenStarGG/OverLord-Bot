@@ -84,8 +84,7 @@ module.exports = (client) => {
       if (!channel?.isTextBased()) throw new Error('The events channel is missing');
       const boss = await spawnBoss(channel);
       bossSpawned(guildId); // a boss appeared (or one was already there), so schedule the next one
-      if (boss) logging('info', 'Boss spawned', `${boss.name} in #${channel.name} (${message.guild.name})`);
-    } catch (err) {
+      } catch (err) {
       bossRetryLater(guildId);
       logging('warn', 'Boss spawn failed', err.message);
     }
