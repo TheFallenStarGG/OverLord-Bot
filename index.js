@@ -18,6 +18,19 @@ const client = new Client({
 });
 client.setMaxListeners(50);
 
+// discord.js renamed 'ready' to 'clientReady'. Redirect any old 'ready' listeners so they
+// don't trigger the deprecation warning, and skip a listener already registered under the new name.
+for (const method of ['on', 'once', 'addListener', 'prependListener', 'prependOnceListener']) {
+  const orig = client[method].bind(client);
+  client[method] = (event, listener) => {
+    if (event === 'ready') {
+      event = 'clientReady';
+      if (client.listeners('clientReady').includes(listener)) return client;
+    }
+    return orig(event, listener);
+  };
+}
+
 // Every event runs "inside" the server it came from, so per-server data just works everywhere
 const guildIdOf = (arg) => {
   if (!arg || typeof arg !== 'object') return null;
