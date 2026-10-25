@@ -2,6 +2,7 @@ const { logging, setErrorHook } = require('../lib/logging');
 const { scheduleDeletion, cancelDeletion, runDueDeletions, scheduleMissing } = require('../lib/guildData');
 const blacklist = require('../lib/blacklist');
 const digest = require('../lib/digest');
+const banNotice = require('../lib/banNotice');
 
 module.exports = (client) => {
   setErrorHook(digest.noteError);
@@ -9,9 +10,10 @@ module.exports = (client) => {
   client.on('guildCreate', (guild) => {
     cancelDeletion(guild.id); // they came back, keep their data
     digest.bump('joined');
-    if (blacklist.isGuildBlocked(guild.id)) {
+    const ban = blacklist.isGuildBlocked(guild.id);
+    if (ban) {
       logging('warn', 'Left a blacklisted server', `${guild.name} (${guild.id})`);
-      guild.leave().catch(() => {});
+      banNotice.noticeAndLeave(guild, ban.reason).catch(() => {});
     }
   });
 
