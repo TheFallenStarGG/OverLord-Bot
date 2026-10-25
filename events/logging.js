@@ -1,9 +1,11 @@
 const { version: discordJsVersion } = require('discord.js');
 const { setClient, logging, flushAll } = require('../lib/logging');
 const storage = require('../lib/storage');
+const consoleMirror = require('../lib/consoleMirror');
 
 module.exports = (client, ctx) => {
   setClient(client);
+  consoleMirror.setClient(client);
 
   // Errors anywhere in the bot
   process.on('uncaughtException', (err) => logging('error', 'Uncaught exception', err));
