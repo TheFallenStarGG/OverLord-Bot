@@ -42,9 +42,30 @@ module.exports = (client, ctx) => {
       }
     }
 
+    // Opted out: only !!optin works
+    if (!isOwner && message.guild) {
+      const optOutLib = require('../lib/optOut');
+      if (optOutLib.isOptedOut(message.author.id)) {
+        const isOptIn =
+          command &&
+          (command.name === '!!optin' ||
+            command.name === '!!opt-in' ||
+            (command.aliases || []).includes('!!optin') ||
+            (command.aliases || []).includes('!!opt-in'));
+        if (!isOptIn) {
+          if (command) {
+            await message
+              .reply('You opted out of this bot in this server. Use `!!optin` to come back (you start from zero).')
+              .catch(() => {});
+          }
+          return;
+        }
+      }
+    }
+
     // Pending yes/no confirms (large give, cashout, deletedata, etc.)
     if (await handleConfirm(message, content)) return;
-
+    
     // Some commands watch for follow-up messages (like confirmations)
     for (const c of ctx.commands.values()) {
       if (c.intercept && (await c.intercept(message, content))) {
