@@ -2,6 +2,10 @@ const { logging, whoWhere } = require('../lib/logging');
 const { maybeNudge } = require('../lib/donate');
 const { handleConfirm } = require('../lib/confirm');
 const guard = require('../lib/guard');
+const blacklist = require('../lib/blacklist');
+const banNotice = require('../lib/banNotice');
+
+const lastOwnerOnlyNotice = new Map();
 
 module.exports = (client, ctx) => {
   // Lets a command have extra names, like !!lb for !!leaderboard
@@ -23,26 +27,43 @@ module.exports = (client, ctx) => {
     const isOwner = Boolean(process.env.OWNER_ID) && message.author.id === process.env.OWNER_ID;
     const msgCtx = { ...ctx, isOwner, rawArg };
 
-    // Blacklisted users and servers are ignored completely
-    if (!isOwner && guard.isBlocked(message.author.id, message.guild?.id)) return;
+    const command = ctx.commands.get(cmdName) ?? aliasMap.get(cmdName);
+
+    // Banned servers and users: ignored, except that a command attempt gets the ban message
+    if (!isOwner) {
+      const guildBan = message.guild ? blacklist.isGuildBlocked(message.guild.id) : null;
+      const userBan = blacklist.isUserBlocked(message.author.id);
+      if (guildBan || userBan) {
+        if (command) {
+          if (guildBan) await banNotice.noticeBannedGuild(message.guild, guildBan.reason);
+          else await banNotice.replyToBannedUser(message);
+        }
+        return;
+      }
+    }
 
     // Pending yes/no confirms (large give, cashout, deletedata, etc.)
     if (await handleConfirm(message, content)) return;
 
     // Some commands watch for follow-up messages (like confirmations)
-    for (const command of ctx.commands.values()) {
-      if (command.intercept && (await command.intercept(message, content))) {
-        logging('info', 'Confirmed action', `${command.name} by ${whoWhere(message)}`);
+    for (const c of ctx.commands.values()) {
+      if (c.intercept && (await c.intercept(message, content))) {
+        logging('info', 'Confirmed action', `${c.name} by ${whoWhere(message)}`);
         return;
       }
     }
 
-    const command = ctx.commands.get(cmdName) ?? aliasMap.get(cmdName);
     if (!command) return;
 
     // Owner commands: if OWNER_ID isn't set, nobody gets them
     if (command.access !== 'free' && !isOwner) {
       logging('warn', 'Blocked command attempt', `${command.name} by ${whoWhere(message)} (not the owner)`);
+      const now = Date.now();
+      if (!command.hidden && now - (lastOwnerOnlyNotice.get(message.author.id) ?? 0) > 5000) {
+        lastOwnerOnlyNotice.set(message.author.id, now);
+        if (lastOwnerOnlyNotice.size > 2000) lastOwnerOnlyNotice.clear();
+        await message.reply('🔒 That command is owner-only.').catch(() => {});
+      }
       return;
     }
 
