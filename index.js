@@ -3,6 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const { FILES, SCOPED_FILES } = require('./config');
 const storage = require('./lib/storage');
+const consoleMirror = require('./lib/consoleMirror');
+consoleMirror.install(); // capture console from here on
 
 const client = new Client({
   intents: [
