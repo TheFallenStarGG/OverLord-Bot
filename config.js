@@ -53,5 +53,6 @@ module.exports = {
     webhide: path.join(__dirname, 'webhide.json'),
     webstatus: path.join(__dirname, 'webstatus.json'),
     webhistory: path.join(__dirname, 'webhistory.json'),
+    fullLogs: path.join(__dirname, 'full_logs.json'),
   },
 };
