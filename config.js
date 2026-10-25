@@ -24,7 +24,7 @@ module.exports = {
   BLOCKED_MODELS: ['content-safety', 'guard'],
 
   // Files that are kept separately for every server (see lib/storage.js)
-  SCOPED_FILES: ['modifiers', 'world', 'economy', 'lottery', 'ranked', 'stocks', 'weather', 'muscle', 'companies', 'realm', 'tournament', 'seasons'],
+  SCOPED_FILES: ['modifiers', 'world', 'economy', 'lottery', 'ranked', 'stocks', 'weather', 'muscle', 'companies', 'realm', 'tournament', 'seasons', 'optout'],
   
   // Saved data files (kept in the same folder as index.js)
   FILES: {
