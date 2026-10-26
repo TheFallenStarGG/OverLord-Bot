@@ -163,7 +163,23 @@ module.exports = {
       const r = conquest.recruit(message.author.id, prov, amt);
       if (r.error) return message.reply(r.error);
       return message.reply(
-        `Queued recruit: **${r.size}** in **${r.province}** (−${r.cost} coins). Resolves on the next tick.`
+        `✅ **${r.house}** now holds **${r.province}** with **${r.size}** troops (−${r.cost} coins).\n` +
+          `This is **immediate** (no wait for tick). Check with \`!!campaign me\`.`
+      );
+    }
+
+    if (s === 'me' || s === 'holdings' || s === 'my') {
+      const r = conquest.holdingsOf(message.author.id);
+      if (r.error) return message.reply(r.error);
+      if (!r.rows.length) {
+        return message.reply(
+          `House **${r.house.name}** controls **no provinces** yet.\n` +
+            `Claim one with \`!!campaign recruit <province> <amount>\` (e.g. \`!!campaign recruit frostmere 10\`).`
+        );
+      }
+      return message.reply(
+        `**${r.house.name}** holdings:\n` +
+          r.rows.map((x) => `• **${x.name}** — ${x.troops} troops`).join('\n')
       );
     }
 
