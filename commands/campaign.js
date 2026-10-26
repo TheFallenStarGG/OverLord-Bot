@@ -120,6 +120,7 @@ module.exports = {
             '`!!campaign attack <from> <to>`',
             '`!!campaign orders` · `!!campaign cancel`',
             '`!!campaign houses` · `!!campaign province <name>`',
+            '`!!campaign color #8b2942` — house leader sets map tint',
             'Admin: `channel #ch` · `start` · `pause` · `tick`',
             'Orders resolve every **6 hours**. Adjacent provinces only.',
           ].join('\n')
@@ -147,6 +148,14 @@ module.exports = {
       const r = conquest.leaveHouse(message.author.id);
       if (r.error) return message.reply(r.error);
       return message.reply('You left your house.');
+    }
+
+    if (s === 'color' || s === 'tint') {
+      const r = conquest.setHouseColor(message.author.id, rest.join(' '));
+      if (r.error) return message.reply(r.error);
+      return message.reply(
+        `House **${r.name}** tint set to \`${r.color}\`. Claimed provinces use this faint overlay on the map.`
+      );
     }
 
     if (s === 'recruit') {
