@@ -24,7 +24,7 @@ module.exports = {
   BLOCKED_MODELS: ['content-safety', 'guard'],
 
   // Files that are kept separately for every server (see lib/storage.js)
-  SCOPED_FILES: ['modifiers', 'world', 'economy', 'lottery', 'ranked', 'stocks', 'weather', 'muscle', 'companies', 'realm', 'tournament', 'seasons', 'optout'],
+  SCOPED_FILES: ['modifiers', 'world', 'economy', 'lottery', 'ranked', 'stocks', 'weather', 'muscle', 'companies', 'realm', 'tournament', 'seasons', 'optout', 'conquest'],  
   
   // Saved data files (kept in the same folder as index.js)
   FILES: {
@@ -56,5 +56,6 @@ module.exports = {
     optout: path.join(__dirname, 'optout.json'),
     fullLogs: path.join(__dirname, 'full_logs.json'),
     banGifs: path.join(__dirname, 'ban_gifs.json'),
+    conquest: path.join(__dirname, 'conquest.json'),
   },
 };
