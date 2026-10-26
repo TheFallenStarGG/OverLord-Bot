@@ -16,18 +16,20 @@ module.exports = (client, ctx) => {
       const body = [];
       const seen = new Set();
 
-    for (const command of ctx.commands.values()) {
+      // Discord hard limit: 100 global application commands
+      for (const command of ctx.commands.values()) {
         if (command.hidden) continue;
+        if (command.access && command.access !== 'free') continue; // skip owner-only (saves slots)
         const json = toSlashCommandJSON(command);
         if (!json.name || seen.has(json.name)) continue;
         seen.add(json.name);
         body.push(json);
+        if (body.length >= 100) break;
       }
 
       await client.application.commands.set(body);
-      logging('info', 'Slash commands registered', `${body.length} commands (experimental)`);
-      console.log(`Registered ${body.length} slash commands (experimental)`);
-    } catch (err) {
+      logging('info', 'Slash commands registered', `${body.length} commands (experimental, max 100)`);
+      console.log(`Registered ${body.length} slash commands (experimental, Discord max 100)`);    } catch (err) {
       logging('error', 'Slash command registration failed', err);
       console.error('Slash command registration failed:', err);
     }
