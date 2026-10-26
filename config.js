@@ -55,5 +55,6 @@ module.exports = {
     webhistory: path.join(__dirname, 'webhistory.json'),
     optout: path.join(__dirname, 'optout.json'),
     fullLogs: path.join(__dirname, 'full_logs.json'),
+    banGifs: path.join(__dirname, 'ban_gifs.json'),
   },
 };
