@@ -42,8 +42,8 @@ module.exports = (client, ctx) => {
       }
     }
 
-    // Opted out: only !!optin works
-    if (!isOwner && message.guild) {
+    // Opted out: only !!optin works (including the bot owner)
+    if (message.guild) {
       const optOutLib = require('../lib/optOut');
       if (optOutLib.isOptedOut(message.author.id)) {
         const isOptIn =
