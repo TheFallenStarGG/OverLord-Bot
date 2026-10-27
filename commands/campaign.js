@@ -140,8 +140,15 @@ module.exports = {
               : '`!!campaign recruit <province> <amount>` (e.g. `recruit frostmere 10`).')
         );
       }
-      return message.reply(
-        `**${r.house.name}**\n` + r.rows.map((x) => `• **${x.name}** — ${x.troops} troops`).join('\n')
+        return message.reply(
+        `**${r.house.name}** · treasury **${r.treasury}** coins\n` +
+          r.rows
+            .map(
+              (x) =>
+                `• **${x.name}** — ${x.troops} troops · cities ${x.citiesHeld}/${x.citiesTotal}` +
+                (x.controlled ? ' · **controlled**' : ' · contested')
+            )
+            .join('\n')
       );
     }
 
@@ -249,7 +256,12 @@ module.exports = {
       const cities = (p.cities || [])
         .map((c) => {
           const co = snap.cityOwner?.[c.id];
-          return `• ${c.name} — ${co ? snap.houses[co]?.name || co : 'Neutral'}`;
+          const fort = snap.forts?.[c.id] || 0;
+          const who = co ? snap.houses[co]?.name || co : 'Neutral';
+          return (
+            `• **${c.name}** — ${who} · tax ${c.tax || 0}` +
+            (fort ? ` · fort ${fort}` : '')
+          );
         })
         .join('\n');
       const embed = new EmbedBuilder()
