@@ -1,4 +1,4 @@
-const { latestEmbed, latestPayload, publishGazette, canvasAvailable } = require('../lib/gazette');
+const { latestPayload, publishGazette, pushLatestToWebsite, canvasAvailable } = require('../lib/gazette');
 
 module.exports = {
   name: '!!gazette',
@@ -12,6 +12,12 @@ module.exports = {
       await message.channel.sendTyping().catch(() => {});
       await publishGazette(message.client, { force: true, channel: message.channel });
       return;
+    }
+
+    if (arg === 'web') {
+      if (!ctx.isOwner) return message.reply('Only the bot owner can do that.');
+      await message.channel.sendTyping().catch(() => {});
+      return message.reply(await pushLatestToWebsite(message.client));
     }
 
     await message.channel.sendTyping().catch(() => {});
