@@ -14,7 +14,7 @@ module.exports = {
   MAX_HISTORY: 20, // total messages remembered per channel or thread (user + bot)
   CONFIRM_WINDOW_MS: 30 * 1000, // time allowed to confirm a memory wipe
   COOLDOWN_MS: 5 * 1000, // per-user wait between questions
-  BAD_MODEL_MS: 10 * 60 * 1000, // how long a failing model is skipped
+  BAD_MODEL_MS: 7 * 24 * 60 * 60 * 1000, // how long a failing model is skipped (1 week)
   BAD_SCORE: 3, // a model is skipped once (👎 minus 👍) reaches this
   MAX_IMAGES: 4, // max images sent per question
   MINUTE_LIMIT: 20, // free-model requests per minute
