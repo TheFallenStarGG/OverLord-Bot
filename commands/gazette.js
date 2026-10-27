@@ -15,7 +15,7 @@ module.exports = {
     }
 
     await message.channel.sendTyping().catch(() => {});
-    const payload = await latestPayload();
+    const payload = await latestPayload(message.client);
     if (!payload) {
       return message.reply(
         "No edition yet. First print is **00:05 UTC**. Owner: `!!gazette test`." +
