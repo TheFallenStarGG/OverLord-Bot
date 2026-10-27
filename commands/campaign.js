@@ -1,8 +1,4 @@
-const {
-  EmbedBuilder,
-  PermissionFlagsBits,
-  AttachmentBuilder,
-} = require('discord.js');
+const { EmbedBuilder, PermissionFlagsBits, AttachmentBuilder } = require('discord.js');
 const conquest = require('../lib/conquest');
 const { canvasAvailable } = require('../lib/conquest/render');
 
@@ -11,8 +7,8 @@ function overviewEmbed(snap) {
   const top = houses
     .slice()
     .sort((a, b) => (b.score || 0) - (a.score || 0))
-    .slice(0, 5)
-    .map((h, i) => `${i + 1}. **${h.name}** — ${h.score || 0} pts · ${h.members.length} members`)
+    .slice(0, 8)
+    .map((h, i) => `${i + 1}. **${h.name}** — ${h.score || 0} pts`)
     .join('\n');
 
   const held = Object.values(snap.owner || {}).filter(Boolean).length;
@@ -20,36 +16,25 @@ function overviewEmbed(snap) {
 
   return new EmbedBuilder()
     .setColor(0xc9a227)
-    .setTitle('Campaign')
+    .setTitle('World Campaign')
     .setDescription(
       snap.active
         ? snap.paused
-          ? 'The campaign is **paused**.'
-          : 'The campaign is **active**.'
-        : 'No campaign is running. An admin can start one with `!!campaign start`.'
+          ? 'The **global** campaign is paused.'
+          : 'The **global** campaign is active — every server is one house on the same map.'
+        : 'Campaign offline. Bot owner: `!!campaign start`.'
     )
     .addFields(
-      {
-        name: 'Season',
-        value: `${snap.seasonKey || '—'} · Turn **${snap.turn || 0}**`,
-        inline: true,
-      },
-      {
-        name: 'Map',
-        value: `${held}/${total} provinces claimed`,
-        inline: true,
-      },
+      { name: 'Season', value: `${snap.seasonKey || '—'} · Turn **${snap.turn || 0}**`, inline: true },
+      { name: 'Map', value: `${held}/${total} held` + (snap.full ? ' · **FULL**' : ` · ${snap.neutral} neutral`), inline: true },
       {
         name: 'Next resolve',
         value: snap.nextTickAt ? `<t:${Math.floor(snap.nextTickAt / 1000)}:R>` : '—',
         inline: true,
       },
-      {
-        name: 'Houses',
-        value: top || 'None yet. `!!campaign create <name>`',
-      }
+      { name: 'Houses (servers)', value: top || 'None yet — run a command in your server to register it.' }
     )
-    .setFooter({ text: '!!campaign help · map updates on each resolve' });
+    .setFooter({ text: 'One house per server (server name) · !!campaign help' });
 }
 
 async function postMap(message, client) {
@@ -59,10 +44,10 @@ async function postMap(message, client) {
 
   if (!buffer) {
     embed.addFields({
-      name: 'Map render',
+      name: 'Map',
       value: canvasAvailable()
-        ? 'Could not build the image this time.'
-        : 'Map images need `@napi-rs/canvas` installed on the host (`npm install @napi-rs/canvas`).',
+        ? 'Could not render.'
+        : 'Install `@napi-rs/canvas` on the host.',
     });
     return message.reply({ embeds: [embed] });
   }
@@ -70,24 +55,26 @@ async function postMap(message, client) {
   const file = new AttachmentBuilder(buffer, { name: 'campaign-map.png' });
   embed.setImage('attachment://campaign-map.png');
 
-  const channelId = snap.channelId;
+  const guildId = message.guild?.id;
+  const channelId = guildId ? snap.channels?.[guildId] : null;
   if (channelId && client) {
     try {
       const ch = await client.channels.fetch(channelId);
       if (ch?.isTextBased?.()) {
-        if (snap.mapMessageId) {
-          const msg = await ch.messages.fetch(snap.mapMessageId).catch(() => null);
+        const mid = snap.mapMessages?.[guildId];
+        if (mid) {
+          const msg = await ch.messages.fetch(mid).catch(() => null);
           if (msg) {
             await msg.edit({ embeds: [embed], files: [file] });
-            return message.reply({ content: `Map updated in <#${channelId}>.`, embeds: [embed], files: [file] });
+            return message.reply(`Map updated in <#${channelId}>.`);
           }
         }
         const sent = await ch.send({ embeds: [embed], files: [file] });
-        conquest.setMapMessageId(sent.id);
-        return message.reply({ content: `Map posted in <#${channelId}>.` });
+        conquest.setMapMessageId(guildId, sent.id);
+        return message.reply(`Map posted in <#${channelId}>.`);
       }
     } catch {
-      /* fall through to reply */
+      /* reply below */
     }
   }
 
@@ -97,115 +84,111 @@ async function postMap(message, client) {
 module.exports = {
   name: '!!campaign',
   aliases: ['!!conquest', '!!warroom'],
-  description: 'Season campaign: houses, armies, and the realm map.',
-  usage: '!!campaign [map|create|join|leave|recruit|move|attack|orders|cancel|houses|province|channel|start|pause|tick|help]',
+  description: 'Global world campaign — one house per server on a shared map.',
+  usage: '!!campaign [map|me|recruit|move|attack|invade|color|orders|cancel|houses|province|channel|start|pause|tick|reset|help]',
   access: 'free',
   async run(message, arg, ctx) {
+    if (!message.guild) return message.reply('Campaign only works in a server.');
+
     const raw = (ctx.rawArg || '').trim();
     const [sub, ...rest] = raw.split(/\s+/);
     const s = (sub || '').toLowerCase();
+    const isOwner = ctx.isOwner;
     const isAdmin =
-      ctx.isOwner || message.member?.permissions?.has(PermissionFlagsBits.ManageGuild);
+      isOwner || message.member?.permissions?.has(PermissionFlagsBits.ManageGuild);
 
-    if (!s || s === 'status' || s === 'help') {
-      if (s === 'help') {
-        return message.reply(
-          [
-            '**Campaign** — season map war (houses & armies)',
-            '`!!campaign` — status',
-            '`!!campaign map` — render the map',
-            '`!!campaign create <name>` / `join <name>` / `leave`',
-            '`!!campaign recruit <province> <amount>` (40 coins/troop)',
-            '`!!campaign move <from> <to> <amount>`',
-            '`!!campaign attack <from> <to>`',
-            '`!!campaign orders` · `!!campaign cancel`',
-            '`!!campaign houses` · `!!campaign province <name>`',
-            '`!!campaign color #8b2942` — house leader sets map tint',
-            'Admin: `channel #ch` · `start` · `pause` · `tick`',
-            'Orders resolve every **6 hours**. Adjacent provinces only.',
-          ].join('\n')
-        );
-      }
+    // Register this server as a house named after the guild
+    conquest.ensureHouse(message.guild);
+
+    if (!s || s === 'status') {
       return message.reply({ embeds: [overviewEmbed(conquest.snapshot())] });
+    }
+
+    if (s === 'help') {
+      return message.reply(
+        [
+          '**World Campaign** — shared map across all servers',
+          '• Your **server = one house**, named after the server',
+          '• Same provinces for everyone; fight for land',
+          '',
+          '`!!campaign map` — world map',
+          '`!!campaign me` — your server’s land',
+          '`!!campaign recruit <province> <n>` — **instant** claim/troops (40 coins each)',
+          '`!!campaign move <from> <to> <n>` — queues until tick',
+          '`!!campaign attack <from> <to>` — adjacent attack (tick)',
+          '`!!campaign invade <province>` — **foothold** if you own nothing (2500 coins, tick)',
+          '`!!campaign color #hex` — map tint',
+          '`!!campaign houses` · `province <name>` · `orders` · `cancel`',
+          'Admin: `channel #ch` · Owner: `start` `pause` `tick` `reset`',
+          'If the map is **full** and you have no land → **invade**.',
+        ].join('\n')
+      );
     }
 
     if (s === 'map') return postMap(message, ctx.client);
 
-    if (s === 'create') {
-      const name = rest.join(' ');
-      const r = conquest.createHouse(message.author.id, name);
+    if (s === 'me' || s === 'holdings' || s === 'my') {
+      const r = conquest.holdingsOf(message.guild.id);
       if (r.error) return message.reply(r.error);
-      return message.reply(`House **${r.house.name}** founded. You are the leader.`);
-    }
-
-    if (s === 'join') {
-      const r = conquest.joinHouse(message.author.id, rest.join(' '));
-      if (r.error) return message.reply(r.error);
-      return message.reply(`Joined **${r.house.name}**.`);
-    }
-
-    if (s === 'leave') {
-      const r = conquest.leaveHouse(message.author.id);
-      if (r.error) return message.reply(r.error);
-      return message.reply('You left your house.');
-    }
-
-    if (s === 'color' || s === 'tint') {
-      const r = conquest.setHouseColor(message.author.id, rest.join(' '));
-      if (r.error) return message.reply(r.error);
+      if (!r.rows.length) {
+        return message.reply(
+          `**${r.house.name}** holds no provinces.\n` +
+            (r.mapFull
+              ? `Map is full → \`!!campaign invade <province>\` (costs ${conquest.INVADE_COST} coins).`
+              : '`!!campaign recruit <province> <amount>` (e.g. `recruit frostmere 10`).')
+        );
+      }
       return message.reply(
-        `House **${r.name}** tint set to \`${r.color}\`. Claimed provinces use this faint overlay on the map.`
+        `**${r.house.name}**\n` + r.rows.map((x) => `• **${x.name}** — ${x.troops} troops`).join('\n')
       );
     }
 
     if (s === 'recruit') {
       const [prov, amt] = rest;
-      const r = conquest.recruit(message.author.id, prov, amt);
+      const r = conquest.recruit(message.guild, message.author.id, prov, amt);
       if (r.error) return message.reply(r.error);
       return message.reply(
-        `✅ **${r.house}** now holds **${r.province}** with **${r.size}** troops (−${r.cost} coins).\n` +
-          `This is **immediate** (no wait for tick). Check with \`!!campaign me\`.`
-      );
-    }
-
-    if (s === 'me' || s === 'holdings' || s === 'my') {
-      const r = conquest.holdingsOf(message.author.id);
-      if (r.error) return message.reply(r.error);
-      if (!r.rows.length) {
-        return message.reply(
-          `House **${r.house.name}** controls **no provinces** yet.\n` +
-            `Claim one with \`!!campaign recruit <province> <amount>\` (e.g. \`!!campaign recruit frostmere 10\`).`
-        );
-      }
-      return message.reply(
-        `**${r.house.name}** holdings:\n` +
-          r.rows.map((x) => `• **${x.name}** — ${x.troops} troops`).join('\n')
+        `✅ **${r.house}** holds **${r.province}** with **${r.size}** troops (−${r.cost} coins). Immediate.`
       );
     }
 
     if (s === 'move') {
       const [from, to, amt] = rest;
-      const r = conquest.move(message.author.id, from, to, amt);
+      const r = conquest.move(message.guild, message.author.id, from, to, amt);
       if (r.error) return message.reply(r.error);
-      return message.reply(`Queued move: **${r.size}** ${r.from} → ${r.to}.`);
+      return message.reply(`Queued move: **${r.size}** ${r.from} → ${r.to} (next tick).`);
     }
 
     if (s === 'attack') {
       const [from, to] = rest;
-      const r = conquest.attack(message.author.id, from, to);
+      const r = conquest.attack(message.guild, message.author.id, from, to);
       if (r.error) return message.reply(r.error);
       return message.reply(`Queued attack: **${r.from}** → **${r.to}** (power ${r.power}).`);
     }
 
+    if (s === 'invade') {
+      const r = conquest.invade(message.guild, message.author.id, rest.join(' '));
+      if (r.error) return message.reply(r.error);
+      return message.reply(
+        `Invasion of **${r.province}** queued (−${r.cost} coins, power ${r.power}). Resolves on next tick.`
+      );
+    }
+
+    if (s === 'color' || s === 'tint') {
+      const r = conquest.setHouseColor(message.guild.id, rest.join(' '));
+      if (r.error) return message.reply(r.error);
+      return message.reply(`**${r.name}** tint → \`${r.color}\``);
+    }
+
     if (s === 'orders') {
-      const list = conquest.listOrders(message.author.id);
-      if (!list.length) return message.reply('No queued orders.');
+      const list = conquest.listOrders(message.guild.id);
+      if (!list.length) return message.reply('No queued orders for this server.');
       return message.reply(
         list
           .map((o) => {
-            if (o.type === 'recruit') return `• recruit ${o.size} @ ${o.provinceId}`;
             if (o.type === 'move') return `• move ${o.size} ${o.fromId} → ${o.toId}`;
             if (o.type === 'attack') return `• attack ${o.fromId} → ${o.toId}`;
+            if (o.type === 'invade') return `• invade ${o.toId}`;
             return `• ${o.type}`;
           })
           .join('\n')
@@ -213,8 +196,8 @@ module.exports = {
     }
 
     if (s === 'cancel') {
-      const n = conquest.cancelOrders(message.author.id);
-      return message.reply(n ? `Cancelled **${n}** order(s).` : 'No orders to cancel.');
+      const n = conquest.cancelOrders(message.guild.id);
+      return message.reply(n ? `Cancelled **${n}** order(s).` : 'Nothing to cancel.');
     }
 
     if (s === 'houses') {
@@ -222,7 +205,7 @@ module.exports = {
       if (!houses.length) return message.reply('No houses yet.');
       return message.reply(
         houses
-          .map((h) => `**${h.name}** — leader <@${h.leaderId}> · ${h.members.length} members · ${h.score || 0} pts`)
+          .map((h) => `**${h.name}** — ${h.score || 0} pts`)
           .join('\n')
           .slice(0, 1900)
       );
@@ -237,13 +220,23 @@ module.exports = {
       const armies = (snap.armies[p.id] || [])
         .map((a) => `${snap.houses[a.houseId]?.name || a.houseId}: **${a.size}**`)
         .join('\n');
+      const cities = (p.cities || [])
+        .map((c) => {
+          const co = snap.cityOwner?.[c.id];
+          return `• ${c.name} — ${co ? snap.houses[co]?.name || co : 'Neutral'}`;
+        })
+        .join('\n');
       const embed = new EmbedBuilder()
         .setColor(0x5865f2)
         .setTitle(p.name)
         .addFields(
           { name: 'Owner', value: house ? house.name : 'Neutral', inline: true },
-          { name: 'Borders', value: p.neighbors.map((id) => conquest.getProvince(id)?.name || id).join(', '), inline: false },
-          { name: 'Armies', value: armies || 'None', inline: false }
+          {
+            name: 'Borders',
+            value: p.neighbors.map((id) => conquest.getProvince(id)?.name || id).join(', ') || '—',
+          },
+          { name: 'Cities', value: cities || '—' },
+          { name: 'Armies', value: armies || 'None' }
         );
       return message.reply({ embeds: [embed] });
     }
@@ -252,38 +245,44 @@ module.exports = {
       if (!isAdmin) return message.reply('Manage Server required.');
       const target = rest[0];
       if (!target || target.toLowerCase() === 'off') {
-        conquest.setChannel(null);
-        conquest.setMapMessageId(null);
-        return message.reply('Campaign channel cleared.');
+        conquest.setChannel(message.guild.id, null);
+        conquest.setMapMessageId(message.guild.id, null);
+        return message.reply('Campaign channel cleared for this server.');
       }
       const id = (target.match(/^<#(\d+)>$/) || target.match(/^(\d{17,20})$/))?.[1];
       if (!id) return message.reply('Mention a channel or paste its ID.');
-      conquest.setChannel(id);
-      return message.reply(`Campaign map channel set to <#${id}>.`);
+      conquest.setChannel(message.guild.id, id);
+      return message.reply(`This server’s campaign map channel → <#${id}>.`);
     }
 
     if (s === 'start') {
-      if (!isAdmin) return message.reply('Manage Server required.');
+      if (!isOwner) return message.reply('Bot owner only (global campaign).');
       conquest.startCampaign();
-      return message.reply('Campaign **started**. Turns resolve every 6 hours.');
+      return message.reply('Global campaign **started**.');
     }
 
     if (s === 'pause') {
-      if (!isAdmin) return message.reply('Manage Server required.');
+      if (!isOwner) return message.reply('Bot owner only.');
       const snap = conquest.snapshot();
       conquest.pauseCampaign(!snap.paused);
-      return message.reply(conquest.snapshot().paused ? 'Campaign **paused**.' : 'Campaign **resumed**.');
+      return message.reply(conquest.snapshot().paused ? 'Paused.' : 'Resumed.');
     }
 
     if (s === 'tick') {
-      if (!isAdmin) return message.reply('Manage Server required.');
-      const result = conquest.resolveTick(message.guild.id);
-      if (result.skipped) return message.reply('Nothing to resolve (inactive or paused).');
-      const lines = (result.reports || []).slice(0, 12).join('\n') || 'No movements this tick.';
-      await message.reply(`**Turn ${result.turn} resolved.**\n${lines}`.slice(0, 1900));
+      if (!isOwner) return message.reply('Bot owner only.');
+      const result = conquest.resolveTick();
+      if (result.skipped) return message.reply('Nothing to resolve (inactive/paused).');
+      const lines = (result.reports || []).slice(0, 15).join('\n') || 'Quiet tick.';
+      await message.reply(`**Turn ${result.turn}**\n${lines}`.slice(0, 1900));
       return postMap(message, ctx.client);
     }
 
-    return message.reply('Unknown subcommand. Try `!!campaign help`.');
+    if (s === 'reset') {
+      if (!isOwner) return message.reply('Bot owner only.');
+      conquest.resetWorld();
+      return message.reply('World campaign **reset** (global). Run `!!campaign start` if needed.');
+    }
+
+    return message.reply('Unknown subcommand. `!!campaign help`');
   },
 };
