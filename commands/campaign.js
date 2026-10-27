@@ -107,20 +107,22 @@ module.exports = {
     if (s === 'help') {
       return message.reply(
         [
-          '**World Campaign** — shared map across all servers',
-          '• Your **server = one house**, named after the server',
-          '• Same provinces for everyone; fight for land',
+          '**World Campaign** — shared map · cities · AI rival',
+          '• Your **server = one house** (server name)',
+          '• Own **all cities** in a province to control it',
+          '• City **taxes** fill the house treasury each tick',
+          '• **The Shadow Court** (AI) expands every tick',
           '',
-          '`!!campaign map` — world map',
-          '`!!campaign me` — your server’s land',
-          '`!!campaign recruit <province> <n>` — **instant** claim/troops (40 coins each)',
-          '`!!campaign move <from> <to> <n>` — queues until tick',
-          '`!!campaign attack <from> <to>` — adjacent attack (tick)',
-          '`!!campaign invade <province>` — **foothold** if you own nothing (2500 coins, tick)',
-          '`!!campaign color #hex` — map tint',
-          '`!!campaign houses` · `province <name>` · `orders` · `cancel`',
+          '`!!campaign map` · `me` · `province <name>`',
+          '`!!campaign recruit <province> <n>` — neutral land (instant)',
+          '`!!campaign move <from> <to> <n>`',
+          '`!!campaign siege <fromProvince> <city>` — take one city (tick)',
+          '`!!campaign attack <from> <to>` — siege first open city there',
+          '`!!campaign invade <province>` — landless foothold (one city)',
+          '`!!campaign fortify <city>` — harder to siege (−80 coins)',
+          '`!!campaign collect` — treasury → your coins',
+          '`!!campaign color #hex` · `orders` · `cancel` · `houses`',
           'Admin: `channel #ch` · Owner: `start` `pause` `tick` `reset`',
-          'If the map is **full** and you have no land → **invade**.',
         ].join('\n')
       );
     }
@@ -163,7 +165,31 @@ module.exports = {
       const [from, to] = rest;
       const r = conquest.attack(message.guild, message.author.id, from, to);
       if (r.error) return message.reply(r.error);
-      return message.reply(`Queued attack: **${r.from}** → **${r.to}** (power ${r.power}).`);
+      return message.reply(
+        `Queued siege: **${r.city}** via **${r.from}** → **${r.to}** (power ${r.power}).\n${r.note || ''}`
+      );
+    }
+
+    if (s === 'siege') {
+      const from = rest[0];
+      const city = rest.slice(1).join(' ');
+      const r = conquest.siege(message.guild, message.author.id, from, city);
+      if (r.error) return message.reply(r.error);
+      return message.reply(
+        `Queued siege: **${r.city}** (${r.province}) from **${r.from}** (power ${r.power}). Resolves next tick.`
+      );
+    }
+
+    if (s === 'fortify') {
+      const r = conquest.fortify(message.guild, message.author.id, rest.join(' '));
+      if (r.error) return message.reply(r.error);
+      return message.reply(`Fortified **${r.city}** to level **${r.level}** (−${r.cost} coins).`);
+    }
+
+    if (s === 'collect' || s === 'treasury' || s === 'tax') {
+      const r = conquest.collectTax(message.guild, message.author.id);
+      if (r.error) return message.reply(r.error);
+      return message.reply(`Collected **${r.amount}** coins from **${r.house}** treasury.`);
     }
 
     if (s === 'invade') {
