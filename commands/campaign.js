@@ -281,9 +281,16 @@ module.exports = {
           const co = snap.cityOwner?.[c.id];
           const fort = snap.forts?.[c.id] || 0;
           const who = co ? snap.houses[co]?.name || co : 'Neutral';
+          const stacks = (snap.armies?.[c.id] || [])
+            .map((a) => {
+              const hn = snap.houses[a.houseId]?.name || a.houseId;
+              return `${hn} ${a.size}`;
+            })
+            .join(', ');
           return (
             `• **${c.name}** — ${who} · tax ${c.tax || 0}` +
-            (fort ? ` · fort ${fort}` : '')
+            (fort ? ` · fort ${fort}` : '') +
+            (stacks ? ` · troops: ${stacks}` : ' · troops: —')
           );
         })
         .join('\n');
