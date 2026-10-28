@@ -29,15 +29,17 @@ module.exports = (client) => {
         embeds: [
           new EmbedBuilder()
             .setColor(0xd4af37)
-            .setTitle('👑 The Overlord has arrived')
-                'Thanks for the invite. Commands use `!!` (slash is experimental).\n\n' +
+            .setTitle('The Overlord has arrived')
+            .setDescription(
+              'Thanks for the invite. Commands use `!!` (slash is experimental).\n\n' +
                 '**New here:** `!!tutorial` · `!!help` · `!!daily` · `!!work`\n' +
-                '**War gamemode:** `!!campaign` — shared world map across servers\n' +
+                '**Campaign:** `!!campaign` — shared world map across servers\n' +
                 '**Free coins:** vote on top.gg then `!!vote` (every 12h)\n\n' +
                 '**Admins:** `!!events-channel #channel` for Gazette, bosses, and world posts. ' +
                 'Nothing posts until you set that.\n' +
                 '`!!tutorial admin` for setup. Site: https://thefallenstargg.github.io/Overlord-Website/\n\n' +
                 'Raids are on by default. Opt out: `!!raid-config optout`. Category: `!!raid-config category <name>`.'
+            ),
         ],
       });
     } catch (err) {
