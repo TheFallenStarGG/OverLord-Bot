@@ -1,27 +1,33 @@
 const { EmbedBuilder } = require('discord.js');
-const { buildHelp, searchCommands } = require('../lib/helpPages');
+const { buildHelp, searchCommands, PAGES } = require('../lib/helpPages');
 
 module.exports = {
   name: '!!help',
   usage: '!!help [page | search]',
-  description: 'Opens the command list, jumps to a page (`!!help games`), or searches (`!!help rob`).',
+  description: 'Command list by section, or search (e.g. !!help rob, !!help campaign).',
   access: 'free',
 
   async run(message, arg, ctx) {
     const q = (arg || '').trim();
     if (q && !/^\d+$/.test(q)) {
-      const pages = ['combat', 'games', 'economy', 'market', 'shop', 'fun', 'owner', 'more'];
-      const isPage = pages.some((p) => p.startsWith(q) || q.startsWith(p));
+      const keys = PAGES.map((p) => p.key);
+      const isPage = keys.some((p) => p.startsWith(q.toLowerCase()) || q.toLowerCase().startsWith(p));
       if (!isPage) {
         const hits = searchCommands(ctx.commands, q);
         if (!hits.length) {
-          return message.reply(`No commands match \`${q}\`. Try \`!!help\` or \`!!help games\`.`);
+          return message.reply(
+            `Nothing matches \`${q}\`. Try \`!!help\`, \`!!help earn\`, or \`!!help campaign\`.`
+          );
         }
         const embed = new EmbedBuilder()
           .setColor(0x57f287)
           .setTitle(`Search: ${q}`)
-          .setDescription(hits.map((c) => `**${c.usage}**\n${c.description}`).join('\n\n').slice(0, 4000))
-          .setFooter({ text: 'Tip: !!help games opens a full page · Terms: https://thefallenstargg.github.io/Overlord-ToS/terms.html' });
+          .setDescription(
+            hits.map((c) => `**${c.usage || c.name}**\n${c.description || ''}`).join('\n\n').slice(0, 4000)
+          )
+          .setFooter({
+            text: '!!help campaign · !!help earn · Terms on the main help footer',
+          });
         return message.reply({ embeds: [embed] });
       }
     }
