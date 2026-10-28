@@ -30,14 +30,14 @@ module.exports = (client) => {
           new EmbedBuilder()
             .setColor(0xd4af37)
             .setTitle('👑 The Overlord has arrived')
-            .setDescription(
-              'Thanks for adding me! Everything runs on `!!` commands. Start with `!!help`, `!!daily`, and `!!work`.\n\n' +
-                '**Admins:** run `!!events-channel #channel` to get the daily Gazette, world events, boss fights, and update notes there. ' +
-                'I won\'t post any of that until you pick a channel.\n\n' +
-                '⚔️ **Cross-server raids are ON by default.** Players can start a raid against a random other server, and a temporary raid channel is created in a **⚔️ Raids** category. ' +
-                'Only players who join a raid can chat there (messages are shared with the rival server) or be robbed. ' +
-                'Pick a different category with `!!raid-config category <name>`. **To opt out**, an admin runs `!!raid-config optout`, and any player can run `!!raid optout`.'
-            ),
+                'Thanks for the invite. Commands use `!!` (slash is experimental).\n\n' +
+                '**New here:** `!!tutorial` · `!!help` · `!!daily` · `!!work`\n' +
+                '**War gamemode:** `!!campaign` — shared world map across servers\n' +
+                '**Free coins:** vote on top.gg then `!!vote` (every 12h)\n\n' +
+                '**Admins:** `!!events-channel #channel` for Gazette, bosses, and world posts. ' +
+                'Nothing posts until you set that.\n' +
+                '`!!tutorial admin` for setup. Site: https://thefallenstargg.github.io/Overlord-Website/\n\n' +
+                'Raids are on by default. Opt out: `!!raid-config optout`. Category: `!!raid-config category <name>`.'
         ],
       });
     } catch (err) {
