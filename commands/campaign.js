@@ -122,6 +122,8 @@ module.exports = {
           '`!!campaign fortify <city>` — harder to siege (−80 coins)',
           '`!!campaign collect` — treasury → your coins',
           '`!!campaign color #hex` · `orders` · `cancel` · `houses`',
+          '`!!campaign ally <server name>` · `unally` — seasonal alliance (no sieging each other)',
+          'Seasons reset the map; top houses get treasury prizes automatically',
           'Admin: `channel #ch` · Owner: `start` `pause` `tick` `reset`',
         ].join('\n')
       );
@@ -197,6 +199,27 @@ module.exports = {
       const r = conquest.collectTax(message.guild, message.author.id);
       if (r.error) return message.reply(r.error);
       return message.reply(`Collected **${r.amount}** coins from **${r.house}** treasury.`);
+    }
+
+    if (s === 'ally') {
+      const name = rest.join(' ').trim();
+      if (!name) {
+        return message.reply('Usage: `!!campaign ally <other server name>` (must already be on the map).');
+      }
+      const snap = conquest.snapshot();
+      const match = Object.values(snap.houses || {}).find(
+        (h) => !h.ai && h.name.toLowerCase().includes(name.toLowerCase()) && h.id !== message.guild.id
+      );
+      if (!match) return message.reply('No matching house on the map. They need to run a campaign command first.');
+      const r = conquest.allyWith(message.guild, match.id);
+      if (r.error) return message.reply(r.error);
+      return message.reply(`Allied with **${r.ally}** for this season. You cannot siege each other.`);
+    }
+
+    if (s === 'unally' || s === 'breakally') {
+      const r = conquest.clearAlly(message.guild);
+      if (r.error) return message.reply(r.error);
+      return message.reply(r.was ? `Alliance with **${r.was}** broken.` : 'You had no alliance.');
     }
 
     if (s === 'invade') {
