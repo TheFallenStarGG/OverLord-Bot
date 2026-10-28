@@ -14,10 +14,10 @@ module.exports = {
       .setTitle('💖 Support The Overlord')
       .setDescription(
         `Donations are always welcome, and they really help!\n\n` +
-          `Donations help keep The Overlord online.\n\n` +
           `💸 **[${CASH_APP}](${CASH_APP_URL})**\n\n` +
+          `Free support: **[vote on top.gg](https://top.gg/bot/1555446743515144232/vote)** every 12 hours, then run \`!!vote\` for coins.\n\n` +
           `Thank you for keeping the realm running :3`
-      );
+      )
     await message.reply({ embeds: [embed] });
   },
 };
