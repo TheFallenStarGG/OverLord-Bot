@@ -26,7 +26,7 @@ function overviewEmbed(snap) {
     )
     .addFields(
       { name: 'Season', value: `${snap.seasonKey || '—'} · Turn **${snap.turn || 0}**`, inline: true },
-      { name: 'Map', value: `${held}/${total} held` + (snap.full ? ' · **FULL**' : ` · ${snap.neutral} neutral`), inline: true },
+      { name: 'Map', value: `${held}/${total} provinces controlled · ${snap.claimedCities}/${snap.totalCities} cities claimed` + (snap.full ? ' · **FULL**' : ''), inline: true },
       {
         name: 'Next resolve',
         value: snap.nextTickAt ? `<t:${Math.floor(snap.nextTickAt / 1000)}:R>` : '—',
@@ -111,10 +111,11 @@ module.exports = {
           '• Your **server = one house** (server name)',
           '• Own **all cities** in a province to control it',
           '• City **taxes** fill the house treasury each tick',
-          '• **The Shadow Court** (AI) expands every tick',
+          '• **The Shadow Court** (AI) only grows while players are active, never holds more than a quarter of the map',
+          '• Troops hold cities: rival armies in one city fight, an empty city goes neutral',
           '',
           '`!!campaign map` · `me` · `province <name>`',
-          '`!!campaign recruit <province> <n>` — neutral land (instant)',
+          '`!!campaign recruit <city or province> <n>` — claims/reinforces ONE city (instant)',
           '`!!campaign move <from> <to> <n>`',
           '`!!campaign siege <fromProvince> <city>` — take one city (tick)',
           '`!!campaign attack <from> <to>` — siege first open city there',
@@ -132,17 +133,17 @@ module.exports = {
     if (s === 'map') return postMap(message, ctx.client);
 
     if (s === 'me' || s === 'holdings' || s === 'my') {
-      const r = conquest.holdingsOf(message.guild.id);
+      const r = conquest.holdingsSummary(message.guild.id);
       if (r.error) return message.reply(r.error);
       if (!r.rows.length) {
         return message.reply(
-          `**${r.house.name}** holds no provinces.\n` +
+          `**${r.house.name}** holds no cities.\n` +
             (r.mapFull
               ? `Map is full → \`!!campaign invade <province>\` (costs ${conquest.INVADE_COST} coins).`
-              : '`!!campaign recruit <province> <amount>` (e.g. `recruit frostmere 10`).')
+              : '`!!campaign recruit <city or province> <amount>` (e.g. `recruit frostmere 10`).')
         );
       }
-        return message.reply(
+      return message.reply(
         `**${r.house.name}** · treasury **${r.treasury}** coins\n` +
           r.rows
             .map(
@@ -155,11 +156,20 @@ module.exports = {
     }
 
     if (s === 'recruit') {
-      const [prov, amt] = rest;
-      const r = conquest.recruit(message.guild, message.author.id, prov, amt);
+      if (rest.length < 2) {
+        return message.reply('Usage: `!!campaign recruit <city or province> <amount>` e.g. `recruit Sandholt 10`.');
+      }
+      const amt = rest[rest.length - 1];
+      const target = rest.slice(0, -1).join(' ');
+      const r = conquest.recruit(message.guild, message.author.id, target, amt);
       if (r.error) return message.reply(r.error);
       return message.reply(
-        `✅ **${r.house}** holds **${r.province}** with **${r.size}** troops (−${r.cost} coins). Immediate.`
+        `✅ **${r.house}** ${r.claimed ? 'claimed' : 'reinforced'} **${r.city}** (${r.province}) with **${r.size}** troops (−${r.cost} coins).` +
+          (r.controlled
+            ? `\n🏰 You now control all of **${r.province}**.`
+            : r.open.length
+              ? `\nStill open in ${r.province}: ${r.open.join(', ')} — \`!!campaign recruit <city> <n>\`.`
+              : '')
       );
     }
 
@@ -273,8 +283,14 @@ module.exports = {
       const snap = conquest.snapshot();
       const owner = snap.owner[p.id];
       const house = owner ? snap.houses[owner] : null;
-      const armies = (snap.armies[p.id] || [])
-        .map((a) => `${snap.houses[a.houseId]?.name || a.houseId}: **${a.size}**`)
+      const armyTotals = {};
+      for (const c of p.cities || []) {
+        for (const a of snap.armies?.[c.id] || []) {
+          armyTotals[a.houseId] = (armyTotals[a.houseId] || 0) + a.size;
+        }
+      }
+      const armies = Object.entries(armyTotals)
+        .map(([hid, n]) => `${snap.houses[hid]?.name || hid}: **${n}**`)
         .join('\n');
       const cities = (p.cities || [])
         .map((c) => {
