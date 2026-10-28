@@ -47,7 +47,9 @@ module.exports = (client) => {
       if (Date.now() < (snap.nextTickAt || 0)) return;
       const result = conquest.resolveTick();
       if (result.skipped) return;
-      logging('info', 'Campaign tick', `world turn ${result.turn}`);
+      if (result.reports?.length) {
+        logging('info', 'Campaign tick', `turn ${result.turn} · ${result.reports.length} events`);
+      }
       await publishAllMaps(client);
     } catch (err) {
       logging('error', 'Campaign tick error', err);
