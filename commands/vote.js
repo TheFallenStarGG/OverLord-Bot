@@ -25,9 +25,10 @@ module.exports = {
             .setColor(0xff73fa)
             .setTitle('Thanks for voting!')
             .setDescription(
-                `You received **${r.amount}** coins.\n` +
-                `Also: **+10%** coins from normal earns for **${r.buffHours} hour** (work, daily, etc.).\n` +
-                `Vote again after **12 hours**.`
+                `You received **${r.amount}** coins` +
+                (r.weekend ? ' (**weekend double**)' : '') +
+                `.\nAlso: **+10%** coins from normal earns for **${r.buffHours} hour**.\n` +
+                `You can vote again after **12 hours**.`
             ),
         ],
       });
