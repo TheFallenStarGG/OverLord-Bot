@@ -27,11 +27,30 @@ const USER_PAGES = [
       '• Profile: `!!rank`, `!!profile`, `!!quests`',
   },
   {
+    title: 'World Campaign',
+    body:
+      'Servers share **one** map. Your server is one house.\n\n' +
+      '• `!!campaign map` — the world\n' +
+      '• `!!campaign recruit <province> <n>` — claim empty land\n' +
+      '• `!!campaign siege <from> <city>` — take cities (need all of them to own a province)\n' +
+      '• `!!campaign collect` — city taxes from the house treasury\n' +
+      '• Seasons reset the map; top houses get treasury prizes\n' +
+      'More: `!!campaign help`',
+  },
+  {
+    title: 'Vote (free coins)',
+    body:
+      'The bot is on top.gg.\n\n' +
+      '• Vote: https://top.gg/bot/1555446743515144232/vote\n' +
+      '• Then `!!vote` once every 12 hours for coins (and a short earn buff)\n' +
+      'Optional. No paywall.',
+  },
+  {
     title: 'Rules of the realm',
     body:
       '• Don\'t abuse bugs or spam commands\n' +
       '• Prefix (`!!`) is the supported way to play\n' +
-      '• Terms: https://thefallenstargg.github.io/Overlord-ToS/terms.html\n' +
+      '• Terms: https://thefallenstargg.github.io/Overlord-Website/terms.html\n' +
       '• Admins: run `!!tutorial admin` for setup',
   },
 ];
