@@ -67,8 +67,8 @@ module.exports = {
       });
     }
 
-    if (r.reason === 'not_voted') {
-      return message.reply({
+  if (r.reason === 'novote' || r.reason === 'not_voted') {
+    return message.reply({
         embeds: [
           new EmbedBuilder()
             .setColor(0x5865f2)
@@ -83,6 +83,20 @@ module.exports = {
       });
     }
 
+    if (r.reason === 'nocheck') {
+      return message.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0xed4245)
+            .setTitle('Could not check top.gg')
+            .setDescription(
+              `Reward is **${VOTE_REWARD_COINS}** coins (×2 on weekends) and a **10%** earn buff for **1h** after a successful claim.\n` +
+                `Auto-check failed — [vote link](${TOPGG_VOTE_URL}) still helps the bot.`
+            ),
+        ],
+      });
+    }
+    
     return message.reply({
       embeds: [
         new EmbedBuilder()
