@@ -1,7 +1,11 @@
 const { EmbedBuilder } = require('discord.js');
-const { claimVoteReward, VOTE_REWARD_COINS, TOPGG_VOTE_URL } = require('../lib/vote');
+const {
+  claimVoteReward,
+  VOTE_REWARD_COINS,
+  TOPGG_VOTE_URL,
+} = require('../lib/vote');
 
-function fmtRemain(ms) {
+function fmtMs(ms) {
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
   if (h > 0) return `${h}h ${m}m`;
@@ -10,52 +14,83 @@ function fmtRemain(ms) {
 
 module.exports = {
   name: '!!vote',
-  aliases: ['!!topgg'],
+  aliases: [],
   usage: '!!vote',
-  description: 'Vote for the bot on top.gg and claim a coin reward (once per 12 hours).',
+  description: 'Claim coins after voting for the bot on top.gg (plus a short earn buff).',
   access: 'free',
 
   async run(message) {
+    if (!message.guild) {
+      return message.reply('Use `!!vote` in a server so coins can go on that server’s balance.');
+    }
+
+    try {
+      require('../lib/activity').touch(
+        message.author.id,
+        message.guild.id,
+        message.channel.id
+      );
+    } catch (_) {}
+
     const r = await claimVoteReward(message.author.id);
 
     if (r.ok) {
+      const buffPct = Math.round(((r.buffMult || 1.1) - 1) * 100);
+      const buffH = r.buffHours || 1;
       return message.reply({
         embeds: [
           new EmbedBuilder()
-            .setColor(0xff73fa)
-            .setTitle('Thanks for voting!')
+            .setColor(0x57f287)
+            .setTitle('Vote claimed')
             .setDescription(
-                `You received **${r.amount}** coins` +
-                (r.weekend ? ' (**weekend double**)' : '') +
-                `.\nAlso: **+10%** coins from normal earns for **${r.buffHours} hour**.\n` +
-                `You can vote again after **12 hours**.`
+              `**+${r.amount}** coins` +
+                (r.weekend ? ' (**weekend 2×**)' : '') +
+                `\n**+${buffPct}%** coin earnings for **${buffH} hour(s)**` +
+                `\n\nYou can vote again in about 12 hours.`
             ),
         ],
       });
     }
 
     if (r.reason === 'cooldown') {
-      return message.reply(
-        `You already claimed a vote reward recently. Try again in **${fmtRemain(r.remainingMs)}**.\nVote link: <${r.voteUrl}>`
-      );
+      return message.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0xfaa61a)
+            .setTitle('Already claimed')
+            .setDescription(
+              `You already claimed a vote reward recently.\n` +
+                `Try again in **${fmtMs(r.remainingMs)}**.\n` +
+                `[Vote on top.gg](${r.voteUrl || TOPGG_VOTE_URL}) (helps even on cooldown).`
+            ),
+        ],
+      });
     }
 
-    if (r.reason === 'novote') {
-      return message.reply(
-        `No recent top.gg vote found for you yet.\n1. Vote here: <${r.voteUrl}>\n2. Run \`!!vote\` again to claim **${r.reward}** coins.`
-      );
+    if (r.reason === 'not_voted') {
+      return message.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0x5865f2)
+            .setTitle('Vote on top.gg')
+            .setDescription(
+              `No recent vote found yet.\n` +
+                `1. [Vote here](${r.voteUrl || TOPGG_VOTE_URL})\n` +
+                `2. Run \`!!vote\` again (or wait for auto-reward if webhooks are up).\n\n` +
+                `Reward: **${VOTE_REWARD_COINS}** coins (×2 on weekends) + **10%** earn buff for **1 hour**.`
+            ),
+        ],
+      });
     }
 
-    // nocheck — token missing or API down
     return message.reply({
       embeds: [
         new EmbedBuilder()
-          .setColor(0xff73fa)
-          .setTitle('Vote on top.gg')
+          .setColor(0xed4245)
+          .setTitle('Could not check top.gg')
           .setDescription(
-            `Support The Overlord on top.gg (every 12 hours):\n**[Vote here](${TOPGG_VOTE_URL})**\n\n` +
-              `When vote checking is configured, \`!!vote\` grants **${VOTE_REWARD_COINS}** coins after you vote.\n` +
-              `Right now the bot could not verify votes automatically — the link still helps the bot grow.`
+            `Reward is **${VOTE_REWARD_COINS}** coins (+ weekend 2×) and a **10%** earn buff for **1h** after a successful claim.\n` +
+              `Auto-check failed — [vote link](${TOPGG_VOTE_URL}) still helps the bot.`
           ),
       ],
     });
