@@ -2,17 +2,34 @@ const { EmbedBuilder, PermissionFlagsBits, AttachmentBuilder } = require('discor
 const conquest = require('../lib/conquest');
 const { canvasAvailable } = require('../lib/conquest/render');
 
-function overviewEmbed(snap) {
-  const houses = Object.values(snap.houses || {});
+function overviewEmbed(snap, client) {
+  let houses = conquest.visibleHouses
+    ? conquest.visibleHouses(client)
+    : Object.values(snap.houses || {});
+
+  // Fallback if export missing
+  if (!conquest.visibleHouses) {
+    houses = houses.filter((h) => {
+      if (h.ai) return true;
+      return (h.score || 0) > 0;
+    });
+  }
+
   const top = houses
-    .slice()
-    .sort((a, b) => (b.score || 0) - (a.score || 0))
     .slice(0, 8)
     .map((h, i) => `${i + 1}. **${h.name}** — ${h.score || 0} pts`)
     .join('\n');
 
   const held = Object.values(snap.owner || {}).filter(Boolean).length;
   const total = conquest.listProvinces().length;
+  const claimedCities =
+    snap.claimedCities != null
+      ? snap.claimedCities
+      : Object.values(snap.cityOwner || {}).filter(Boolean).length;
+  const totalCities =
+    snap.totalCities != null
+      ? snap.totalCities
+      : conquest.listProvinces().reduce((n, p) => n + (p.cities?.length || 0), 0);
 
   return new EmbedBuilder()
     .setColor(0xc9a227)
@@ -26,21 +43,30 @@ function overviewEmbed(snap) {
     )
     .addFields(
       { name: 'Season', value: `${snap.seasonKey || '—'} · Turn **${snap.turn || 0}**`, inline: true },
-      { name: 'Map', value: `${held}/${total} provinces controlled · ${snap.claimedCities}/${snap.totalCities} cities claimed` + (snap.full ? ' · **FULL**' : ''), inline: true },
+      {
+        name: 'Map',
+        value:
+          `${held}/${total} provinces controlled · ${claimedCities}/${totalCities} cities claimed` +
+          (snap.full ? ' · **FULL**' : ''),
+        inline: true,
+      },
       {
         name: 'Next resolve',
         value: snap.nextTickAt ? `<t:${Math.floor(snap.nextTickAt / 1000)}:R>` : '—',
         inline: true,
       },
-      { name: 'Houses (servers)', value: top || 'None yet — run a command in your server to register it.' }
+      {
+        name: 'Houses (servers)',
+        value: top || 'None active yet — recruit or score points to show up here.',
+      }
     )
-    .setFooter({ text: 'One house per server (server name) · !!campaign help' });
+    .setFooter({ text: 'One house per server · left servers and 0-pt ghosts hidden · !!campaign help' });
 }
 
 async function postMap(message, client) {
   const snap = conquest.snapshot();
   const buffer = await conquest.buildMapBuffer();
-  const embed = overviewEmbed(snap);
+  const embed = overviewEmbed(snap, message.client);
 
   if (!buffer) {
     embed.addFields({
@@ -275,7 +301,7 @@ module.exports = {
           .join('\n')
           .slice(0, 1900)
       );
-    }
+        }
 
     if (s === 'province') {
       const p = conquest.resolveName(rest.join(' '));
