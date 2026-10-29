@@ -293,15 +293,15 @@ module.exports = {
     }
 
     if (s === 'houses') {
-      const houses = Object.values(conquest.snapshot().houses || {});
-      if (!houses.length) return message.reply('No houses yet.');
+      const houses = conquest.visibleHouses(message.client);
+      if (!houses.length) return message.reply('No active houses to show.');
       return message.reply(
         houses
-          .map((h) => `**${h.name}** — ${h.score || 0} pts`)
+          .map((h, i) => `${i + 1}. **${h.name}** — ${h.score || 0} pts`)
           .join('\n')
           .slice(0, 1900)
       );
-        }
+    }
 
     if (s === 'province') {
       const p = conquest.resolveName(rest.join(' '));
