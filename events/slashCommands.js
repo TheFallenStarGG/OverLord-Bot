@@ -3,6 +3,7 @@ const { logging, whoWhere } = require('../lib/logging');
 const { maybeNudge } = require('../lib/donate');
 const { createMessageShim, buildSlashPayload, toSlashCommandJSON } = require('../lib/slashBridge');
 const guard = require('../lib/guard');
+const prefixLib = require('../lib/prefix');
 
 module.exports = (client, ctx) => {
   client._overlordCommands = ctx.commands;
@@ -18,7 +19,7 @@ module.exports = (client, ctx) => {
 
       // Discord hard limit: 100 global application commands
       for (const command of ctx.commands.values()) {
-        if (command.hidden) continue;
+        if (command.hidden || command.noSlash) continue;
         if (command.access && command.access !== 'free') continue; // skip owner-only (saves slots)
         const json = toSlashCommandJSON(command);
         if (!json.name || seen.has(json.name)) continue;
@@ -58,6 +59,12 @@ module.exports = (client, ctx) => {
     }
 
     const message = createMessageShim(interaction);
+    
+    const slashPrefix = prefixLib.get();
+    if (slashPrefix !== prefixLib.DEFAULT) {
+      const sendReply = message.reply;
+      message.reply = (payload) => sendReply(prefixLib.localize(payload, slashPrefix));
+    }
 
     // Blacklist, flood limit, and abuse tracking (same checks as the !! commands)
     const check = await guard.preflight(message, command, { isOwner, viaSlash: true });
