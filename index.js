@@ -52,12 +52,14 @@ async function main() {
   const commandsDir = path.join(__dirname, 'commands');
   for (const file of fs.readdirSync(commandsDir).filter((f) => f.endsWith('.js'))) {
     try {
-      const command = require(path.join(commandsDir, file));
-      if (!command?.name || typeof command.run !== 'function') {
-        console.error(`Skipped command ${file}: missing name or run()`);
-        continue;
+      const exported = require(path.join(commandsDir, file));
+      for (const command of [].concat(exported)) {
+        if (!command?.name || typeof command.run !== 'function') {
+          console.error(`Skipped a command in ${file}: missing name or run()`);
+          continue;
+        }
+        commands.set(command.name, command);
       }
-      commands.set(command.name, command);
     } catch (err) {
       console.error(`Failed to load command ${file}:`, err.message);
     }
