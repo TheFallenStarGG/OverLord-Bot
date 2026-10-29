@@ -4,6 +4,7 @@ const { handleConfirm } = require('../lib/confirm');
 const guard = require('../lib/guard');
 const blacklist = require('../lib/blacklist');
 const banNotice = require('../lib/banNotice');
+const prefixLib = require('../lib/prefix');
 
 const lastOwnerOnlyNotice = new Map();
 
@@ -17,17 +18,40 @@ module.exports = (client, ctx) => {
   async function handleMessage(message) {
     if (message.author.bot) return;
 
-    const trimmed = message.content.trim();
+    const original = message.content.trim();
+    const prefix = message.guild ? prefixLib.get() : prefixLib.DEFAULT;
+    const isBangHelp = /^!!help(\s|$)/i.test(original);
+
+    // Servers with their own prefix: "<prefix>daily" is treated as "!!daily" internally.
+    // "!!anything" (except !!help) is ignored there so it can't clash with other bots.
+    let trimmed = original;
+    let foreignBang = false;
+    if (prefix !== prefixLib.DEFAULT && !isBangHelp) {
+      if (original.toLowerCase().startsWith(prefix.toLowerCase())) {
+        trimmed = prefixLib.DEFAULT + original.slice(prefix.length);
+      } else if (original.startsWith(prefixLib.DEFAULT)) {
+        foreignBang = true;
+      }
+    }
+
     const first = trimmed.split(/\s+/)[0];
     const cmdName = first.toLowerCase();
     const rawArg = trimmed.slice(first.length).trim(); // keeps original capitalization
     const arg = rawArg.toLowerCase();
-    const content = trimmed.toLowerCase();
+    const content = original.toLowerCase(); // confirmations and follow-ups use the text as typed
 
     const isOwner = Boolean(process.env.OWNER_ID) && message.author.id === process.env.OWNER_ID;
-    const msgCtx = { ...ctx, isOwner, rawArg };
+    const command = foreignBang ? undefined : ctx.commands.get(cmdName) ?? aliasMap.get(cmdName);
+    const msgCtx = { ...ctx, isOwner, rawArg, prefix, usedName: command?.name };
 
-    const command = ctx.commands.get(cmdName) ?? aliasMap.get(cmdName);
+    if (command && trimmed !== original) {
+      message.content = trimmed; // commands that re-read message.content see the "!!" form
+    }
+    if (command && prefix !== prefixLib.DEFAULT) {
+      // Hints in replies ("try !!daily") show this server's prefix
+      const sendReply = message.reply.bind(message);
+      message.reply = (payload) => sendReply(prefixLib.localize(payload, prefix));
+    }
 
     // Banned servers and users: ignored, except that a command attempt gets the ban message
     if (!isOwner) {
@@ -65,7 +89,7 @@ module.exports = (client, ctx) => {
 
     // Pending yes/no confirms (large give, cashout, deletedata, etc.)
     if (await handleConfirm(message, content)) return;
-    
+
     // Some commands watch for follow-up messages (like confirmations)
     for (const c of ctx.commands.values()) {
       if (c.intercept && (await c.intercept(message, content))) {
