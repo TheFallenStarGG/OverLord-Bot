@@ -122,6 +122,15 @@ module.exports = (client, ctx) => {
     logging('info', 'Command used', `${command.name} by ${whoWhere(message)}`);
     try {
       await command.run(message, arg, msgCtx);
+      if (message.guild) {
+        try {
+          require('../lib/activity').touch(
+            message.author.id,
+            message.guild.id,
+            message.channel.id
+          );
+        } catch (_) {}
+      }
       if (command.name !== '!!donate') maybeNudge(message);
     } catch (err) {
       message.reply(guard.friendlyError(err, command.name)).catch(() => {});
