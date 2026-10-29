@@ -811,6 +811,203 @@ add({
   },
 });
 
+// ============================================================ Anti-raid & welcome
+
+add({
+  name: 'antiraid',
+  usage: '!!antiraid [on|off|threshold <n>|window <sec>|age <hours>|action kick|ban|timeout|alert #channel|lock on|off]',
+  description: 'Join-spike protection, young-account filter, optional soft lock.',
+  perm: P.ManageGuild,
+  modRole: false,
+  botPerms: [],
+  async run(message, raw) {
+    let ar;
+    try {
+      ar = require('../lib/antiraid');
+    } catch {
+      return message.reply('Anti-raid module is missing (`lib/antiraid.js`).');
+    }
+    const c = ar.cfg();
+    const parts = raw.split(/\s+/).filter(Boolean);
+    const sub = (parts[0] || '').toLowerCase();
+
+    const done = (text) => {
+      ar.save();
+      return message.reply(text);
+    };
+
+    if (sub === 'on' || sub === 'enable') {
+      c.enabled = true;
+      return done('✅ Anti-raid **on**.');
+    }
+    if (sub === 'off' || sub === 'disable') {
+      c.enabled = false;
+      return done('Anti-raid **off**.');
+    }
+    if (sub === 'threshold' && parts[1]) {
+      const n = Number(parts[1]);
+      if (!Number.isInteger(n) || n < 3 || n > 50) {
+        return message.reply('Usage: `!!antiraid threshold <3-50>` (joins in the window).');
+      }
+      c.joinThreshold = n;
+      return done(`✅ Raid threshold = **${n}** joins in the window.`);
+    }
+    if (sub === 'window' && parts[1]) {
+      const n = Number(parts[1]);
+      if (!Number.isInteger(n) || n < 5 || n > 120) {
+        return message.reply('Usage: `!!antiraid window <5-120>` (seconds).');
+      }
+      c.joinWindowSec = n;
+      return done(`✅ Join window = **${n}s**.`);
+    }
+    if (sub === 'age' && parts[1]) {
+      const n = Number(parts[1]);
+      if (!Number.isInteger(n) || n < 0 || n > 720) {
+        return message.reply('Usage: `!!antiraid age <0-720>` (hours; **0** = off).');
+      }
+      c.minAccountAgeHours = n;
+      return done(n === 0 ? '✅ Account-age filter **off**.' : `✅ Min account age = **${n}h**.`);
+    }
+    if (sub === 'action' && parts[1]) {
+      const a = parts[1].toLowerCase();
+      if (!['kick', 'ban', 'timeout'].includes(a)) {
+        return message.reply('Usage: `!!antiraid action kick|ban|timeout`.');
+      }
+      c.action = a;
+      return done(`✅ Anti-raid action = **${a}**.`);
+    }
+    if (sub === 'alert') {
+      const arg = parts[1] || '';
+      if (/^(off|none|disable)$/i.test(arg)) {
+        c.alertChannelId = null;
+        return done('Anti-raid alerts **off**.');
+      }
+      const ch = channelFrom(message, arg);
+      if (!ch?.isTextBased?.()) {
+        return message.reply('Usage: `!!antiraid alert #channel` or `!!antiraid alert off`.');
+      }
+      c.alertChannelId = ch.id;
+      return done(`✅ Anti-raid alerts → <#${ch.id}>.`);
+    }
+    if (sub === 'lock' && parts[1]) {
+      const v = parts[1].toLowerCase();
+      if (v === 'on') {
+        c.lockOnRaid = true;
+        return done('✅ Soft-lock channels on raid spike **on**.');
+      }
+      if (v === 'off') {
+        c.lockOnRaid = false;
+        return done('Soft-lock on raid **off**.');
+      }
+      return message.reply('Usage: `!!antiraid lock on|off`.');
+    }
+    if (sub) {
+      return message.reply('Run `!!antiraid` with no args for status, or see `!!modhelp`.');
+    }
+
+    const on = (v) => (v ? '✅ on' : '❌ off');
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0xed4245)
+          .setTitle('🛡️ Anti-raid')
+          .setDescription(
+            'Needs **Server Members Intent** and Kick/Ban/Timeout + Manage Channels for soft-lock.\n' +
+              'Staff are not exempt from age checks if they *join* as new accounts.'
+          )
+          .addFields(
+            { name: 'Enabled', value: on(c.enabled), inline: true },
+            { name: 'Spike', value: `**${c.joinThreshold}** joins / **${c.joinWindowSec}s**`, inline: true },
+            { name: 'Min account age', value: c.minAccountAgeHours ? `**${c.minAccountAgeHours}h**` : 'off', inline: true },
+            { name: 'Action', value: `**${c.action}**`, inline: true },
+            { name: 'Soft lock', value: on(c.lockOnRaid), inline: true },
+            {
+              name: 'Alert channel',
+              value: c.alertChannelId ? `<#${c.alertChannelId}>` : 'none',
+              inline: true,
+            },
+            {
+              name: 'Commands',
+              value:
+                '`!!antiraid on|off`\n' +
+                '`!!antiraid threshold <n>` · `window <sec>` · `age <hours>`\n' +
+                '`!!antiraid action kick|ban|timeout`\n' +
+                '`!!antiraid alert #channel|off` · `lock on|off`',
+            }
+          ),
+      ],
+    });
+  },
+});
+
+add({
+  name: 'welcome',
+  usage: '!!welcome [#channel] [message…] | !!welcome off | !!welcome test',
+  description: 'Join message in a channel. Tokens: {user} {server} {membercount}',
+  perm: P.ManageGuild,
+  modRole: false,
+  botPerms: [],
+  async run(message, raw) {
+    let ar;
+    try {
+      ar = require('../lib/antiraid');
+    } catch {
+      return message.reply('Welcome module is missing (`lib/antiraid.js`).');
+    }
+    const w = ar.welcomeCfg();
+    const parts = raw.split(/\s+/).filter(Boolean);
+    const head = (parts[0] || '').toLowerCase();
+
+    if (head === 'off' || head === 'disable' || head === 'none') {
+      w.enabled = false;
+      w.channelId = null;
+      ar.save();
+      return message.reply('Welcome messages **off**.');
+    }
+
+    if (head === 'test') {
+      if (!w.enabled || !w.channelId) {
+        return message.reply('Welcome is not set. `!!welcome #channel Welcome {user}!`');
+      }
+      const text = String(w.message || 'Welcome {user}!')
+        .replaceAll('{user}', `<@${message.author.id}>`)
+        .replaceAll('{server}', message.guild.name)
+        .replaceAll('{membercount}', String(message.guild.memberCount));
+      const ch = await message.guild.channels.fetch(w.channelId).catch(() => null);
+      if (!ch?.isTextBased?.()) return message.reply('Welcome channel is missing.');
+      await ch.send({ content: text.slice(0, 2000) }).catch(() => {});
+      return message.reply(`Test sent to <#${w.channelId}>.`);
+    }
+
+    if (!parts.length) {
+      return message.reply(
+        w.enabled && w.channelId
+          ? `Welcome **on** in <#${w.channelId}>:\n\`\`\`\n${w.message}\n\`\`\`\n` +
+              `Change: \`!!welcome #channel your text\` · off: \`!!welcome off\` · \`!!welcome test\``
+          : 'Welcome **off**. Example: `!!welcome #general Welcome {user} to **{server}**!`'
+      );
+    }
+
+    const ch = channelFrom(message, parts[0]);
+    if (!ch?.isTextBased?.()) {
+      return message.reply('First argument must be a channel: `!!welcome #general Welcome {user}!`');
+    }
+    if (!ch.permissionsFor(message.guild.members.me)?.has([P.ViewChannel, P.SendMessages])) {
+      return message.reply('I need **View Channel** and **Send Messages** there.');
+    }
+
+    const msg = parts.slice(1).join(' ').trim() || 'Welcome {user} to **{server}**!';
+    w.enabled = true;
+    w.channelId = ch.id;
+    w.message = msg.slice(0, 1800);
+    ar.save();
+    return message.reply(
+      `✅ Welcome → <#${ch.id}>\nMessage:\n\`\`\`\n${w.message}\n\`\`\`\nTokens: \`{user}\` \`{server}\` \`{membercount}\``
+    );
+  },
+});
+
+
 // ============================================================ Overview
 
 add({
