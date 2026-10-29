@@ -127,7 +127,7 @@ module.exports = {
     conquest.ensureHouse(message.guild);
 
     if (!s || s === 'status') {
-      return message.reply({ embeds: [overviewEmbed(conquest.snapshot())] });
+      return message.reply({ embeds: [overviewEmbed(conquest.snapshot(), message.client)] });
     }
 
     if (s === 'help') {
